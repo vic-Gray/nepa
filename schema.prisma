@@ -46,6 +46,8 @@ model Utility {
 model Bill {
   id        String     @id @default(uuid())
   amount    Decimal    @db.Decimal(10, 2)
+  lateFee   Decimal    @default(0) @db.Decimal(10, 2)
+  discount  Decimal    @default(0) @db.Decimal(10, 2)
   dueDate   DateTime
   status    BillStatus @default(PENDING)
   userId    String
@@ -61,6 +63,17 @@ model Bill {
   @@index([utilityId])
   @@index([status])
   @@index([dueDate])
+}
+
+model Coupon {
+  id         String   @id @default(uuid())
+  code       String   @unique
+  amount     Decimal  @db.Decimal(10, 2)
+  type       String   // 'PERCENTAGE' or 'FIXED'
+  expiryDate DateTime
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Payment {
