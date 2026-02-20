@@ -5,6 +5,8 @@ import { configureSecurity } from './middleware/security';
 import { apiKeyAuth } from './middleware/auth';
 import { requestLogger } from './middleware/logger';
 import { swaggerSpec } from './swagger';
+import { upload } from './middleware/upload';
+import { uploadDocument } from './controllers/DocumentController';
 
 const app = express();
 
@@ -46,5 +48,30 @@ app.use('/api', apiKeyAuth);
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Authenticated access successful' });
 });
+
+// Document Upload Route
+/**
+ * @openapi
+ * /api/documents/upload:
+ *   post:
+ *     summary: Upload a document
+ *     security:
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               userId:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Document uploaded successfully
+ */
+app.post('/api/documents/upload', apiKeyAuth, upload.single('file'), uploadDocument);
 
 export default app;
