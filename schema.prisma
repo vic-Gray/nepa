@@ -31,6 +31,7 @@ model User {
   notificationPreference NotificationPreference?
   notificationLogs       NotificationLog[]
   documents              Document[]
+  reports                Report[]
 
   @@index([email])
 }
@@ -132,4 +133,15 @@ model Document {
   user         User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  title     String
+  type      String   // 'REVENUE', 'USER_GROWTH', 'BILLS'
+  data      Json
+  createdBy String
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [createdBy], references: [id])
 }

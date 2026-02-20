@@ -7,6 +7,7 @@ import { requestLogger } from './middleware/logger';
 import { swaggerSpec } from './swagger';
 import { upload } from './middleware/upload';
 import { uploadDocument } from './controllers/DocumentController';
+import { getDashboardData, generateReport, exportData } from './controllers/AnalyticsController';
 
 const app = express();
 
@@ -73,5 +74,35 @@ app.get('/api/test', (req, res) => {
  *         description: Document uploaded successfully
  */
 app.post('/api/documents/upload', apiKeyAuth, upload.single('file'), uploadDocument);
+
+// Analytics Routes
+/**
+ * @openapi
+ * /api/analytics/dashboard:
+ *   get:
+ *     summary: Get analytics dashboard data
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data retrieved
+ */
+app.get('/api/analytics/dashboard', apiKeyAuth, getDashboardData);
+
+/**
+ * @openapi
+ * /api/analytics/reports:
+ *   post:
+ *     summary: Generate and save a custom report
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       201:
+ *         description: Report created
+ */
+app.post('/api/analytics/reports', apiKeyAuth, generateReport);
+
+// Export Route
+app.get('/api/analytics/export', apiKeyAuth, exportData);
 
 export default app;
