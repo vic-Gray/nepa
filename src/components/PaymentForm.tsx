@@ -9,23 +9,28 @@ interface Props {
 export const PaymentForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
   const [form, setForm] = useState<PaymentFormData>({ destination: '', amount: '' });
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(form);
+  };
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(form); }}>
+    <form onSubmit={handleSubmit} className="payment-form">
       <input 
-        placeholder="Meter Number" 
+        placeholder="Destination Address"
         value={form.destination}
         onChange={e => setForm({...form, destination: e.target.value})}
-        required 
+        required
       />
       <input 
         type="number" 
-        placeholder="Amount" 
+        placeholder="Amount (XLM)"
         value={form.amount}
         onChange={e => setForm({...form, amount: e.target.value})}
-        required 
+        required
       />
       <button type="submit" disabled={isLoading}>
-        {isLoading ? 'Processing...' : 'Pay Now'}
+        {isLoading ? 'Processing...' : 'Pay Bill'}
       </button>
     </form>
   );
