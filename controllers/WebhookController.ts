@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { webhookService } from './WebhookService';
-import { logger } from './logger';
+import { webhookService } from '../WebhookService';
+import { logger } from '../logger';
+import prisma from '../prismaClient';
 
 export class WebhookController {
   /**
@@ -72,7 +73,7 @@ export class WebhookController {
 
       res.status(200).json({
         success: true,
-        webhooks: webhooks.map((w) => ({
+        webhooks: webhooks.map((w: any) => ({
           id: w.id,
           url: w.url,
           events: w.events,
@@ -104,7 +105,7 @@ export class WebhookController {
       const updates = req.body;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -156,7 +157,7 @@ export class WebhookController {
       const userId = (req as any).userId;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -202,7 +203,7 @@ export class WebhookController {
       const { limit = '50' } = req.query;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -226,7 +227,7 @@ export class WebhookController {
 
       res.status(200).json({
         success: true,
-        events: events.map((e) => ({
+        events: events.map((e: any) => ({
           id: e.id,
           eventType: e.eventType,
           status: e.status,
@@ -256,7 +257,7 @@ export class WebhookController {
       const userId = (req as any).userId;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -301,7 +302,7 @@ export class WebhookController {
       const userId = (req as any).userId;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -346,7 +347,7 @@ export class WebhookController {
       const userId = (req as any).userId;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -367,7 +368,7 @@ export class WebhookController {
       }
 
       // Verify event belongs to webhook
-      const event = await (global as any).prisma.webhookEvent.findUnique({
+      const event = await prisma.webhookEvent.findUnique({
         where: { id: eventId },
       });
 
@@ -405,7 +406,7 @@ export class WebhookController {
       const { limit = '100' } = req.query;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 

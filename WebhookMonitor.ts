@@ -1,7 +1,21 @@
-import { PrismaClient, Webhook, WebhookEvent, WebhookLog } from '@prisma/client';
 import { logger } from './logger';
+import prisma from './prismaClient';
 
-const prisma = new PrismaClient();
+// Type definitions for Prisma models
+interface WebhookEvent {
+  id: string;
+  webhookId: string;
+  eventType: string;
+  payload: any;
+  status: 'PENDING' | 'DELIVERED' | 'FAILED';
+  attempts: number;
+  lastAttempt?: Date;
+  nextRetry?: Date;
+  deliveryUrl?: string;
+  deliveryAttempts: any[];
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface WebhookMetrics {
   totalWebhooks: number;
@@ -39,7 +53,7 @@ class WebhookMonitor {
         where: { userId },
       });
 
-      const webhookIds = webhooks.map((w) => w.id);
+      const webhookIds = webhooks.map((w: any) =>  w.id);
 
       const events = await prisma.webhookEvent.findMany({
         where: {
@@ -53,16 +67,16 @@ class WebhookMonitor {
       });
 
       const totalWebhooks = webhooks.length;
-      const activeWebhooks = webhooks.filter((w) => w.isActive).length;
+      const activeWebhooks = webhooks.filter((w: any) => w.isActive).length;
       const inactiveWebhooks = totalWebhooks - activeWebhooks;
 
       const totalEvents = events.length;
-      const successfulDeliveries = events.filter((e) => e.status === 'DELIVERED').length;
-      const failedDeliveries = events.filter((e) => e.status === 'FAILED').length;
-      const pendingDeliveries = events.filter((e) => e.status === 'PENDING').length;
+      const successfulDeliveries = events.filter((e: any) => e.status === 'DELIVERED').length;
+      const failedDeliveries = events.filter((e: any) => e.status === 'FAILED').length;
+      const pendingDeliveries = events.filter((e: any) => e.status === 'PENDING').length;
 
-      const totalResponseTime = events.reduce((sum, event) => {
-        const eventResponseTime = event.deliveryAttempts.reduce((sum, attempt) => sum + (attempt.duration || 0), 0);
+      const totalResponseTime = events.reduce((sum: number, event: any) => {
+        const eventResponseTime = event.deliveryAttempts.reduce((sum: number, attempt: any) => sum + (attempt.duration || 0), 0);
         return sum + (event.deliveryAttempts.length > 0 ? eventResponseTime / event.deliveryAttempts.length : 0);
       }, 0);
 
@@ -71,7 +85,7 @@ class WebhookMonitor {
       const successRate = totalEvents > 0 ? (successfulDeliveries / totalEvents) * 100 : 0;
       const failureRate = totalEvents > 0 ? (failedDeliveries / totalEvents) * 100 : 0;
 
-      const totalRetries = events.reduce((sum, event) => sum + (event.attempts - 1), 0);
+      const totalRetries = events.reduce((sum: number, event: any) => sum + (event.attempts - 1), 0);
       const averageRetriesPerEvent = events.length > 0 ? totalRetries / events.length : 0;
 
       return {
@@ -108,16 +122,16 @@ class WebhookMonitor {
       });
 
       const totalWebhooks = webhooks.length;
-      const activeWebhooks = webhooks.filter((w) => w.isActive).length;
+      const activeWebhooks = webhooks.filter((w: any) => w.isActive).length;
       const inactiveWebhooks = totalWebhooks - activeWebhooks;
 
       const totalEvents = eventsData.length;
-      const successfulDeliveries = eventsData.filter((e) => e.status === 'DELIVERED').length;
-      const failedDeliveries = eventsData.filter((e) => e.status === 'FAILED').length;
-      const pendingDeliveries = eventsData.filter((e) => e.status === 'PENDING').length;
+      const successfulDeliveries = eventsData.filter((e: any) => e.status === 'DELIVERED').length;
+      const failedDeliveries = eventsData.filter((e: any) => e.status === 'FAILED').length;
+      const pendingDeliveries = eventsData.filter((e: any) => e.status === 'PENDING').length;
 
-      const totalResponseTime = eventsData.reduce((sum, event) => {
-        const eventResponseTime = event.deliveryAttempts.reduce((sum, attempt) => sum + (attempt.duration || 0), 0);
+      const totalResponseTime = eventsData.reduce((sum: number, event: any) => {
+        const eventResponseTime = event.deliveryAttempts.reduce((sum: number, attempt: any) => sum + (attempt.duration || 0), 0);
         return sum + (event.deliveryAttempts.length > 0 ? eventResponseTime / event.deliveryAttempts.length : 0);
       }, 0);
 
@@ -126,7 +140,7 @@ class WebhookMonitor {
       const successRate = totalEvents > 0 ? (successfulDeliveries / totalEvents) * 100 : 0;
       const failureRate = totalEvents > 0 ? (failedDeliveries / totalEvents) * 100 : 0;
 
-      const totalRetries = eventsData.reduce((sum, event) => sum + (event.attempts - 1), 0);
+      const totalRetries = eventsData.reduce((sum: number, event: any) => sum + (event.attempts - 1), 0);
       const averageRetriesPerEvent = eventsData.length > 0 ? totalRetries / eventsData.length : 0;
 
       return {
@@ -173,14 +187,14 @@ class WebhookMonitor {
 
       const lastDelivery = events.length > 0 ? events[0].lastAttempt : undefined;
 
-      const successfulDeliveries = events.filter((e) => e.status === 'DELIVERED').length;
-      const failedDeliveries = events.filter((e) => e.status === 'FAILED').length;
+      const successfulDeliveries = events.filter((e: any) => e.status === 'DELIVERED').length;
+      const failedDeliveries = events.filter((e: any) => e.status === 'FAILED').length;
       const totalEvents = events.length;
 
       const successRate = totalEvents > 0 ? (successfulDeliveries / totalEvents) * 100 : 0;
 
-      const totalResponseTime = events.reduce((sum, event) => {
-        const eventResponseTime = event.deliveryAttempts.reduce((sum, attempt) => sum + (attempt.duration || 0), 0);
+      const totalResponseTime = events.reduce((sum: number, event: any) => {
+        const eventResponseTime = event.deliveryAttempts.reduce((sum: number, attempt: any) => sum + (attempt.duration || 0), 0);
         return sum + (event.deliveryAttempts.length > 0 ? eventResponseTime / event.deliveryAttempts.length : 0);
       }, 0);
 
@@ -188,10 +202,10 @@ class WebhookMonitor {
 
       // Determine if webhook is healthy
       // It's unhealthy if success rate < 80% or has more than 3 consecutive failures
-      const recentFailures = events.slice(0, 10).filter((e) => e.status === 'FAILED').length;
+      const recentFailures = events.slice(0, 10).filter((e: any) => e.status === 'FAILED').length;
       const isHealthy = successRate >= 80 && recentFailures < 3;
 
-      const lastError = events.find((e) => e.status === 'FAILED')?.deliveryAttempts[0]?.error;
+      const lastError = events.find((e: any) => e.status === 'FAILED')?.deliveryAttempts[0]?.error;
 
       return {
         webhookId,
@@ -269,7 +283,7 @@ class WebhookMonitor {
         take: limit,
       });
 
-      return events.map((e) => ({
+      return events.map((e: any) =>  ({
         eventId: e.id,
         webhookId: e.webhookId,
         eventType: e.eventType,
@@ -327,7 +341,7 @@ class WebhookMonitor {
 
         stats[event.eventType].totalAttempts += event.attempts;
 
-        const eventResponseTime = event.deliveryAttempts.reduce((sum, attempt) => sum + (attempt.duration || 0), 0);
+        const eventResponseTime = event.deliveryAttempts.reduce((sum: number, attempt: any) => sum + (attempt.duration || 0), 0);
         if (event.deliveryAttempts.length > 0) {
           stats[event.eventType].averageResponseTime += eventResponseTime / event.deliveryAttempts.length;
         }
@@ -373,7 +387,7 @@ class WebhookMonitor {
       const failedDeliveries = await prisma.webhookEvent.findMany({
         where: {
           webhookId: {
-            in: webhooks.map((w) => w.id),
+            in: webhooks.map((w: any) =>  w.id),
           },
           status: 'FAILED',
           createdAt: {
@@ -395,7 +409,7 @@ class WebhookMonitor {
 
       // Get webhook health summary
       const healthStatuses = await this.getUserWebhookHealth(userId);
-      const webhookHealthSummary = healthStatuses.map((h) => ({
+      const webhookHealthSummary = healthStatuses.map((h: any) =>  ({
         webhookId: h.webhookId,
         url: h.url,
         status: h.isHealthy ? 'HEALTHY' : 'UNHEALTHY',

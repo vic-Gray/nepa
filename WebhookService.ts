@@ -1,9 +1,7 @@
-import { PrismaClient, Webhook, WebhookEvent, WebhookAttempt } from '@prisma/client';
 import crypto from 'crypto';
 import axios, { AxiosError } from 'axios';
 import { logger } from './logger';
-
-const prisma = new PrismaClient();
+import prisma from './prismaClient';
 
 export interface WebhookPayload {
   eventType: string;
@@ -15,6 +13,37 @@ export interface RetryConfig {
   policy: 'EXPONENTIAL' | 'LINEAR' | 'FIXED';
   maxRetries: number;
   initialDelaySeconds: number;
+}
+
+// Type definitions for Prisma models
+interface Webhook {
+  id: string;
+  userId: string;
+  url: string;
+  events: string[];
+  secret: string;
+  isActive: boolean;
+  retryPolicy: 'EXPONENTIAL' | 'LINEAR' | 'FIXED';
+  maxRetries: number;
+  retryDelaySeconds: number;
+  timeoutSeconds: number;
+  headers: { [key: string]: string };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface WebhookEvent {
+  id: string;
+  webhookId: string;
+  eventType: string;
+  payload: any;
+  status: 'PENDING' | 'DELIVERED' | 'FAILED';
+  attempts: number;
+  lastAttempt?: Date;
+  nextRetry?: Date;
+  deliveryUrl?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 class WebhookService {
@@ -240,13 +269,13 @@ class WebhookService {
   ): Promise<void> {
     try {
       const payloadString = JSON.stringify(payload);
-      const headers = {
+      const headers: { [key: string]: string } = {
         'Content-Type': 'application/json',
         'X-Webhook-Signature': signature,
         'X-Webhook-ID': webhook.id,
         'X-Event-Type': payload.eventType,
         'X-Delivery-ID': event.id,
-        ...(webhook.headers ? JSON.parse(webhook.headers) : {}),
+        ...(webhook.headers ? JSON.parse(webhook.headers as any) : {}),
       };
 
       const startTime = Date.now();
@@ -399,14 +428,14 @@ class WebhookService {
       });
 
       const totalEvents = events.length;
-      const successfulDeliveries = events.filter((e) => e.status === 'DELIVERED').length;
-      const failedDeliveries = events.filter((e) => e.status === 'FAILED').length;
-      const pendingDeliveries = events.filter((e) => e.status === 'PENDING').length;
+      const successfulDeliveries = events.filter((e: any) => e.status === 'DELIVERED').length;
+      const failedDeliveries = events.filter((e: any) => e.status === 'FAILED').length;
+      const pendingDeliveries = events.filter((e: any) => e.status === 'PENDING').length;
 
       const successRate = totalEvents > 0 ? (successfulDeliveries / totalEvents) * 100 : 0;
 
-      const totalTime = events.reduce((sum, event) => {
-        const avgTime = event.deliveryAttempts.reduce((sum, attempt) => sum + (attempt.duration || 0), 0) / (event.deliveryAttempts.length || 1);
+      const totalTime = events.reduce((sum: number, event: any) => {
+        const avgTime = event.deliveryAttempts.reduce((sum: number, attempt: any) => sum + (attempt.duration || 0), 0) / (event.deliveryAttempts.length || 1);
         return sum + avgTime;
       }, 0);
 

@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
-import { webhookService } from './WebhookService';
-import { webhookMonitor } from './WebhookMonitor';
-import { logger } from './logger';
+import { webhookService } from '../WebhookService';
+import { webhookMonitor } from '../WebhookMonitor';
+import { logger } from '../logger';
+import prisma from '../prismaClient';
 
 /**
  * Webhook Management API Controller
@@ -53,7 +54,7 @@ export class WebhookManagementController {
       const { webhookId } = req.params;
       const userId = (req as any).userId;
 
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -164,7 +165,7 @@ export class WebhookManagementController {
       const userId = (req as any).userId;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -237,9 +238,7 @@ export class WebhookManagementController {
 
         let csv = 'Webhook ID,URL,Events,Status,Active\n';
         for (const webhook of webhooks) {
-          csv += `${webhook.id},"${webhook.url}","${webhook.events.join(
-            ',
-          )}",${webhook.isActive ? 'Active' : 'Inactive'},${webhook.isActive ? 'Yes' : 'No'}\n`;
+          csv += `${webhook.id},"${webhook.url}","${webhook.events.join(', ')}",${webhook.isActive ? 'Active' : 'Inactive'},${webhook.isActive ? 'Yes' : 'No'}\n`;
         }
 
         res.send(csv);
@@ -317,7 +316,7 @@ export class WebhookTestingController {
       const userId = (req as any).userId;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -378,7 +377,7 @@ export class WebhookTestingController {
       const { limit = '20' } = req.query;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -422,7 +421,7 @@ export class WebhookTestingController {
       const userId = (req as any).userId;
 
       // Verify ownership
-      const webhook = await (global as any).prisma.webhook.findUnique({
+      const webhook = await prisma.webhook.findUnique({
         where: { id: webhookId },
       });
 
@@ -459,7 +458,7 @@ export class WebhookTestingController {
       const { eventId } = req.params;
       const userId = (req as any).userId;
 
-      const event = await (global as any).prisma.webhookEvent.findUnique({
+      const event = await prisma.webhookEvent.findUnique({
         where: { id: eventId },
         include: {
           webhook: true,
@@ -498,7 +497,7 @@ export class WebhookTestingController {
             url: event.webhook.url,
             timeoutSeconds: event.webhook.timeoutSeconds,
           },
-          deliveryAttempts: event.deliveryAttempts.map((a) => ({
+          deliveryAttempts: event.deliveryAttempts.map((a: any) => ({
             statusCode: a.statusCode,
             duration: a.duration,
             error: a.error,

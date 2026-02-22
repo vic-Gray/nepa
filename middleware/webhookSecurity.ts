@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { logger } from './logger';
+import { logger } from '../logger';
 
 /**
  * Middleware to verify webhook payload signature
@@ -200,7 +200,7 @@ export const checkWebhookTimeout = (timeoutSeconds: number = 30) => {
       const originalEnd = res.end;
       res.end = function (...args: any[]) {
         clearTimeout(timeout);
-        return originalEnd.apply(res, args);
+        return originalEnd.apply(res, args as any);
       };
 
       next();
