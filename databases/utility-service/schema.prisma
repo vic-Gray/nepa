@@ -1,0 +1,22 @@
+// Utility Service Database Schema
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/utility-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("UTILITY_SERVICE_DATABASE_URL")
+}
+
+model Utility {
+  id        String   @id @default(uuid())
+  name      String
+  type      String
+  provider  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([provider])
+}

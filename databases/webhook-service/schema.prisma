@@ -1,0 +1,85 @@
+// Webhook Service Database Schema
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/webhook-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("WEBHOOK_SERVICE_DATABASE_URL")
+}
+
+model Webhook {
+  id                String   @id @default(uuid())
+  url               String
+  events            String[]
+  description       String?
+  secret            String
+  isActive          Boolean  @default(true)
+  retryPolicy       String   @default("EXPONENTIAL")
+  maxRetries        Int      @default(3)
+  retryDelaySeconds Int      @default(60)
+  timeoutSeconds    Int      @default(30)
+  headers           Json?
+  userId            String   // Reference to User service
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  hookedEvents      WebhookEvent[]
+  logs              WebhookLog[]
+
+  @@index([userId])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  webhookId   String
+  eventType   String
+  payload     Json
+  deliveryUrl String
+  status      String   @default("PENDING")
+  attempts    Int      @default(0)
+  lastAttempt DateTime?
+  nextRetry   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  deliveryAttempts WebhookAttempt[]
+
+  @@index([webhookId])
+  @@index([status])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model WebhookAttempt {
+  id         String   @id @default(uuid())
+  eventId    String
+  statusCode Int?
+  response   String?
+  error      String?
+  duration   Int?
+  createdAt  DateTime @default(now())
+  
+  event      WebhookEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([createdAt])
+}
+
+model WebhookLog {
+  id          String   @id @default(uuid())
+  webhookId   String
+  action      String
+  details     String?
+  status      String
+  createdAt   DateTime @default(now())
+  
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@index([createdAt])
+}
