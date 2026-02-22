@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PaymentFormData } from '../types';
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export const PaymentForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
+  const { t } = useTranslation();
   const [form, setForm] = useState<PaymentFormData>({ destination: '', amount: '' });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -17,20 +19,20 @@ export const PaymentForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
   return (
     <form onSubmit={handleSubmit} className="payment-form">
       <input 
-        placeholder="Destination Address"
+        placeholder={t('payment.destination_placeholder')}
         value={form.destination}
         onChange={e => setForm({...form, destination: e.target.value})}
         required
       />
       <input 
         type="number" 
-        placeholder="Amount (XLM)"
+        placeholder={t('payment.amount_placeholder')}
         value={form.amount}
         onChange={e => setForm({...form, amount: e.target.value})}
         required
       />
       <button type="submit" disabled={isLoading}>
-        {isLoading ? 'Processing...' : 'Pay Bill'}
+        {isLoading ? t('payment.processing') : t('payment.pay_button')}
       </button>
     </form>
   );

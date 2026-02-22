@@ -1,0 +1,29 @@
+{
+  "app": {
+    "title": "مدفوعات ستيلار نيبا",
+    "header": "مدفوعات ستيلار نيبا"
+  },
+  "wallet": {
+    "connect": "ربط المحفظة",
+    "connected": "متصل: {{address}}",
+    "connection_failed": "فشل في ربط المحفظة"
+  },
+  "payment": {
+    "title": "إرسال دفعة",
+    "destination_placeholder": "عنوان الوجهة",
+    "amount_placeholder": "المبلغ (XLM)",
+    "pay_button": "دفع الفاتورة",
+    "processing": "جاري المعالجة...",
+    "success": "تم الدفع بنجاح!",
+    "transaction_failed": "فشل المعاملة"
+  },
+  "language": {
+    "select": "اختر اللغة"
+  },
+  "common": {
+    "error": "خطأ",
+    "loading": "جاري التحميل...",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد"
+  }
+}

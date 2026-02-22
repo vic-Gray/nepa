@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import { PrismaClient } from '@prisma/client';
 
 let prisma: PrismaClient;
@@ -35,6 +36,17 @@ beforeEach(async () => {
     }
   }
 });
+
+// Mock i18n for tests
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: {
+      changeLanguage: jest.fn(),
+      language: 'en',
+    },
+  }),
+}));
 
 // Export prisma for use in tests
 export { prisma };

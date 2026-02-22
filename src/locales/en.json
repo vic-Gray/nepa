@@ -1,0 +1,29 @@
+{
+  "app": {
+    "title": "NEPA Stellar Payments",
+    "header": "NEPA Stellar Payments"
+  },
+  "wallet": {
+    "connect": "Connect Wallet",
+    "connected": "Connected: {{address}}",
+    "connection_failed": "Failed to connect wallet"
+  },
+  "payment": {
+    "title": "Send Payment",
+    "destination_placeholder": "Destination Address",
+    "amount_placeholder": "Amount (XLM)",
+    "pay_button": "Pay Bill",
+    "processing": "Processing...",
+    "success": "Payment Successful!",
+    "transaction_failed": "Transaction failed"
+  },
+  "language": {
+    "select": "Select Language"
+  },
+  "common": {
+    "error": "Error",
+    "loading": "Loading...",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  }
+}
