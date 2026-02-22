@@ -11,8 +11,20 @@ use multi_utility::{
     TierRate, TimeOfUseRate, UtilityConfig, UtilityFee, UtilityMeter, UtilityProvider, UtilityType,
 };
 
+mod upgrade_proxy;
+use upgrade_proxy::UpgradeProxy;
+
+mod version_manager;
+use version_manager::{VersionManager, ContractVersion};
+
+mod data_migration;
+use data_migration::DataMigration;
+
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod upgrade_tests;
 
 #[contract]
 pub struct NepaBillingContract;
@@ -524,5 +536,103 @@ impl NepaBillingContract {
     // Get all utility types
     pub fn get_supported_utility_types(env: Env) -> soroban_sdk::Map<u8, String> {
         MultiUtilityManager::get_utility_types(env)
+    }
+
+    // === UPGRADE MANAGEMENT FUNCTIONS ===
+
+    // Initialize upgrade systems
+    pub fn initialize_upgrade_system(env: Env, admin: Address) {
+        UpgradeProxy::initialize(env.clone(), admin.clone());
+        VersionManager::initialize(env.clone(), admin.clone());
+        DataMigration::initialize(env, admin);
+    }
+
+    // Upgrade contract to new version
+    pub fn upgrade_contract(
+        env: Env,
+        admin: Address,
+        new_implementation: Address,
+        new_version: u32,
+    ) -> Result<(), Symbol> {
+        // Check if upgrade is safe
+        let current_version = UpgradeProxy::get_version(env.clone());
+        let is_safe = VersionManager::is_upgrade_safe(env.clone(), current_version, new_version)?;
+        
+        if !is_safe {
+            return Err(Symbol::short("UNSAFE_UPGRADE"));
+        }
+
+        // Backup data before upgrade
+        DataMigration::backup_data(env.clone(), admin.clone())?;
+
+        // Execute upgrade
+        UpgradeProxy::upgrade(env.clone(), admin.clone(), new_implementation, new_version)?;
+
+        // Execute data migration if needed
+        let version_info = VersionManager::get_version_info(env.clone(), new_version);
+        if let Some(info) = version_info {
+            if info.migration_required {
+                DataMigration::execute_migration(env.clone(), admin, current_version, new_version)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    // Register new contract version
+    pub fn register_contract_version(
+        env: Env,
+        admin: Address,
+        version: u32,
+        implementation_address: Address,
+        migration_required: bool,
+        backward_compatible: bool,
+    ) -> Result<(), Symbol> {
+        VersionManager::register_version(
+            env,
+            admin,
+            version,
+            implementation_address,
+            migration_required,
+            backward_compatible,
+        )
+    }
+
+    // Get current contract version
+    pub fn get_contract_version(env: Env) -> u32 {
+        UpgradeProxy::get_version(env)
+    }
+
+    // Get contract upgrade info
+    pub fn get_upgrade_info(env: Env) -> (u32, Address, bool) {
+        let version = UpgradeProxy::get_version(env.clone());
+        let implementation = UpgradeProxy::get_implementation(env.clone());
+        let admin = UpgradeProxy::get_admin(env);
+        (version, implementation, admin == env.current_contract_address())
+    }
+
+    // List all contract versions
+    pub fn list_contract_versions(env: Env) -> soroban_sdk::Map<u32, ContractVersion> {
+        VersionManager::list_versions(env)
+    }
+
+    // Check if upgrade is available
+    pub fn is_upgrade_available(env: Env) -> bool {
+        let current_version = UpgradeProxy::get_version(env.clone());
+        if let Some(latest_version) = VersionManager::get_latest_version(env) {
+            return latest_version > current_version;
+        }
+        false
+    }
+
+    // Get migration status
+    pub fn get_migration_status(env: Env) -> (bool, Option<u32>) {
+        let current_version = UpgradeProxy::get_version(env.clone());
+        let version_info = VersionManager::get_version_info(env, current_version);
+        
+        match version_info {
+            Some(info) => (info.migration_required, Some(info.version)),
+            None => (false, None),
+        }
     }
 }
