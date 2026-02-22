@@ -1,5 +1,7 @@
 #[cfg(test)]
-mod tests {
+mod tests;
+
+mod multi_utility_tests; {
     use super::*;
     use soroban_sdk::{testutils::{Address as TestAddress, Ledger as TestLedger}, Env, Address};
 
