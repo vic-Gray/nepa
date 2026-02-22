@@ -1,0 +1,27 @@
+// Document Service Database Schema
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/document-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DOCUMENT_SERVICE_DATABASE_URL")
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  provider     String   // 'S3' or 'IPFS'
+  userId       String   // Reference to User service
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([provider])
+  @@index([createdAt])
+}

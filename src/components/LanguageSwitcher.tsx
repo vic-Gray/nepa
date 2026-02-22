@@ -11,21 +11,16 @@ const LanguageSwitcher: React.FC = () => {
   return (
     <div className="language-switcher">
       <label htmlFor="language-select" style={{ marginRight: '8px' }}>
-        {t('language.select')}:
+        {t('select_language')}:
       </label>
       <select
         id="language-select"
         onChange={(e) => changeLanguage(e.target.value)}
         value={i18n.language}
-        style={{
-          padding: '4px 8px',
-          borderRadius: '4px',
-          border: '1px solid #ccc',
-        }}
       >
         <option value="en">English</option>
         <option value="fr">Français</option>
-        <option value="ar">العربية</option>
+        <option value="ar">العربية (Arabic)</option>
       </select>
     </div>
   );
