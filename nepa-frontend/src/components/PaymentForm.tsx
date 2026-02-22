@@ -1,5 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PaymentFormData } from '../types';
+import { 
+  validateMeterNumber, 
+  validateAmount, 
+  formatMeterId, 
+  sanitizeAmount,
+  VALIDATION_RULES
+} from '../utils/validation';
+
+interface FormErrors {
+  destination?: string;
+  amount?: string;
+}
 
 interface Props {
   onSubmit: (data: PaymentFormData) => void;
@@ -8,11 +20,84 @@ interface Props {
 
 export const PaymentForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
   const [form, setForm] = useState<PaymentFormData>({ destination: '', amount: '' });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<{ destination: boolean; amount: boolean }>({
+    destination: false,
+    amount: false
+  });
+
+  // Validation functions using utilities
+  const validateMeterId = (meterId: string): string | undefined => {
+    return validateMeterNumber(meterId) || undefined;
+  };
+
+  const validateAmountField = (amount: string): string | undefined => {
+    return validateAmount(amount) || undefined;
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {
+      destination: validateMeterId(form.destination),
+      amount: validateAmountField(form.amount)
+    };
+    
+    setErrors(newErrors);
+    return !newErrors.destination && !newErrors.amount;
+  };
+
+  // Real-time validation on field change
+  useEffect(() => {
+    if (touched.destination) {
+      setErrors(prev => ({
+        ...prev,
+        destination: validateMeterId(form.destination)
+      }));
+    }
+  }, [form.destination, touched.destination]);
+
+  useEffect(() => {
+    if (touched.amount) {
+      setErrors(prev => ({
+        ...prev,
+        amount: validateAmountField(form.amount)
+      }));
+    }
+  }, [form.amount, touched.amount]);
+
+  const handleMeterIdChange = (value: string) => {
+    const formattedValue = formatMeterId(value);
+    setForm({ ...form, destination: formattedValue });
+  };
+
+  const handleAmountChange = (value: string) => {
+    const sanitizedValue = sanitizeAmount(value);
+    setForm({ ...form, amount: sanitizedValue });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Mark all fields as touched
+    setTouched({ destination: true, amount: true });
+    
+    if (validateForm()) {
+      onSubmit({
+        destination: form.destination.trim(),
+        amount: form.amount
+      });
+    }
+  };
+
+  const handleBlur = (field: 'destination' | 'amount') => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
+  const isFormValid = !errors.destination && !errors.amount && form.destination && form.amount;
 
   return (
     <div className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl mx-auto px-3 sm:px-4 lg:px-6">
       <form 
-        onSubmit={(e) => { e.preventDefault(); onSubmit(form); }}
+        onSubmit={handleSubmit}
         className="space-y-4 sm:space-y-6 bg-white shadow-lg rounded-xl p-4 sm:p-6 md:p-8 lg:p-10"
       >
         {/* Header */}
@@ -33,21 +118,35 @@ export const PaymentForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
               htmlFor="meter-number"
               className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2"
             >
-              Meter Number
+              Meter Number <span className="text-red-500">*</span>
             </label>
             <input 
               id="meter-number"
               type="text"
-              placeholder="Enter your meter number"
+              placeholder="METER-123"
               value={form.destination}
-              onChange={e => setForm({...form, destination: e.target.value})}
-              required
-              className="w-full px-3 sm:px-4 py-3 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-base sm:text-lg placeholder-gray-400 min-h-[48px] sm:min-h-[52px]"
+              onChange={e => handleMeterIdChange(e.target.value)}
+              onBlur={() => handleBlur('destination')}
+              className={`w-full px-3 sm:px-4 py-3 sm:py-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-base sm:text-lg placeholder-gray-400 min-h-[48px] sm:min-h-[52px] ${
+                errors.destination && touched.destination 
+                  ? 'border-red-500 focus:ring-red-500' 
+                  : 'border-gray-300'
+              }`}
               autoComplete="off"
               autoCapitalize="characters"
               autoCorrect="off"
               spellCheck="false"
+              maxLength={20}
             />
+            {errors.destination && touched.destination && (
+              <p className="mt-1 text-sm text-red-600 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {errors.destination}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">Format: METER-123 (minimum 3 digits)</p>
           </div>
 
           {/* Amount Field */}
@@ -56,7 +155,7 @@ export const PaymentForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
               htmlFor="amount"
               className="block text-sm font-medium text-gray-700 mb-1 sm:mb-2"
             >
-              Amount (NGN)
+              Amount (NGN) <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-lg sm:text-xl">
@@ -64,17 +163,28 @@ export const PaymentForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
               </span>
               <input 
                 id="amount"
-                type="number"
+                type="text"
                 placeholder="0.00"
                 value={form.amount}
-                onChange={e => setForm({...form, amount: e.target.value})}
-                required
-                min="0"
-                step="0.01"
-                className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-3 sm:py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-base sm:text-lg placeholder-gray-400 min-h-[48px] sm:min-h-[52px]"
+                onChange={e => handleAmountChange(e.target.value)}
+                onBlur={() => handleBlur('amount')}
+                className={`w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-3 sm:py-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-base sm:text-lg placeholder-gray-400 min-h-[48px] sm:min-h-[52px] ${
+                  errors.amount && touched.amount 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : 'border-gray-300'
+                }`}
                 autoComplete="off"
               />
             </div>
+            {errors.amount && touched.amount && (
+              <p className="mt-1 text-sm text-red-600 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {errors.amount}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">Min: ₦{VALIDATION_RULES.MIN_AMOUNT.toLocaleString()} | Max: ₦{VALIDATION_RULES.MAX_AMOUNT.toLocaleString()}</p>
           </div>
 
           {/* Quick Amount Buttons */}
@@ -86,7 +196,8 @@ export const PaymentForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                   key={amount}
                   type="button"
                   onClick={() => setForm({...form, amount})}
-                  className="px-3 py-2 sm:px-4 sm:py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm sm:text-base font-medium transition-colors duration-200 min-h-[44px] sm:min-h-[48px] touch-manipulation"
+                  disabled={isLoading}
+                  className="px-3 py-2 sm:px-4 sm:py-3 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:cursor-not-allowed text-gray-700 rounded-lg text-sm sm:text-base font-medium transition-colors duration-200 min-h-[44px] sm:min-h-[48px] touch-manipulation"
                 >
                   ₦{amount}
                 </button>
@@ -98,7 +209,7 @@ export const PaymentForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
         {/* Submit Button */}
         <button 
           type="submit" 
-          disabled={isLoading || !form.destination || !form.amount}
+          disabled={isLoading || !isFormValid}
           className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 sm:py-4 px-4 sm:px-6 rounded-lg transition-all duration-200 text-base sm:text-lg min-h-[48px] sm:min-h-[52px] touch-manipulation transform active:scale-95"
         >
           {isLoading ? (
