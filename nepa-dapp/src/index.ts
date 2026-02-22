@@ -1,6 +1,10 @@
 // Fixed path: added ../ to go up one level from 'src' to find 'packages'
 import * as NepaClient from '../packages/nepa_client_v2'; 
 import { Keypair, Transaction } from '@stellar/stellar-sdk';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 async function main() {
     const client = new NepaClient.Client({
@@ -8,8 +12,11 @@ async function main() {
         rpcUrl: 'https://soroban-testnet.stellar.org:443',
     });
 
-    // Using your provided secret key
-    const adminSecret = "SBJZL75I3EUN4WUWO6TPMJGYZH5SYQDU4SZRNL2AVH5I3XPYAWXPZIOV"; 
+    // Load secret key from environment variables
+    const adminSecret = process.env.STELLAR_SECRET_KEY;
+    if (!adminSecret) {
+        throw new Error("STELLAR_SECRET_KEY environment variable is not set");
+    }
     const adminKeypair = Keypair.fromSecret(adminSecret);
     const adminPublicKey = adminKeypair.publicKey();
 

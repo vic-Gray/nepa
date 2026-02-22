@@ -83,8 +83,13 @@
     "test:unit": "jest tests/unit --watchAll=false",
     "test:integration": "jest tests/integration --watchAll=false",
     "test:e2e": "playwright test",
+    "test:upgrade": "jest tests/upgrade --watchAll=false",
     "lint": "eslint . --ext .ts,.js,.tsx,.jsx --fix",
     "lint:check": "eslint . --ext .ts,.js,.tsx,.jsx",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "contract:build": "cd nepa-dapp/nepa_contract && cargo build --release --target wasm32-unknown-unknown",
+    "contract:test": "cd nepa-dapp/nepa_contract && cargo test",
+    "contract:deploy": "node scripts/deploy_upgrade.js",
+    "contract:migrate": "node scripts/migrate_contract.js"
   }
 }
