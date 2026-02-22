@@ -1,0 +1,23 @@
+// Analytics Service Database Schema
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/analytics-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("ANALYTICS_SERVICE_DATABASE_URL")
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  title     String
+  type      String   // 'REVENUE', 'USER_GROWTH', 'BILLS'
+  data      Json
+  createdBy String   // Reference to User service
+  createdAt DateTime @default(now())
+  
+  @@index([type])
+  @@index([createdBy])
+  @@index([createdAt])
+}

@@ -1,0 +1,171 @@
+version: '3.8'
+
+services:
+  # User Service Database
+  user-db:
+    image: postgres:15-alpine
+    container_name: nepa-user-db
+    environment:
+      POSTGRES_DB: nepa_user_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nepa_user_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Notification Service Database
+  notification-db:
+    image: postgres:15-alpine
+    container_name: nepa-notification-db
+    environment:
+      POSTGRES_DB: nepa_notification_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nepa_notification_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Document Service Database
+  document-db:
+    image: postgres:15-alpine
+    container_name: nepa-document-db
+    environment:
+      POSTGRES_DB: nepa_document_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5434:5432"
+    volumes:
+      - document-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nepa_document_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Utility Service Database
+  utility-db:
+    image: postgres:15-alpine
+    container_name: nepa-utility-db
+    environment:
+      POSTGRES_DB: nepa_utility_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5435:5432"
+    volumes:
+      - utility-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nepa_utility_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Payment Service Database
+  payment-db:
+    image: postgres:15-alpine
+    container_name: nepa-payment-db
+    environment:
+      POSTGRES_DB: nepa_payment_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5436:5432"
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nepa_payment_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Billing Service Database
+  billing-db:
+    image: postgres:15-alpine
+    container_name: nepa-billing-db
+    environment:
+      POSTGRES_DB: nepa_billing_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5437:5432"
+    volumes:
+      - billing-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nepa_billing_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Analytics Service Database
+  analytics-db:
+    image: postgres:15-alpine
+    container_name: nepa-analytics-db
+    environment:
+      POSTGRES_DB: nepa_analytics_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5438:5432"
+    volumes:
+      - analytics-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nepa_analytics_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Webhook Service Database
+  webhook-db:
+    image: postgres:15-alpine
+    container_name: nepa-webhook-db
+    environment:
+      POSTGRES_DB: nepa_webhook_service
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5439:5432"
+    volumes:
+      - webhook-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nepa_webhook_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: nepa-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  user-db-data:
+  notification-db-data:
+  document-db-data:
+  utility-db-data:
+  payment-db-data:
+  billing-db-data:
+  analytics-db-data:
+  webhook-db-data:
+  redis-data:

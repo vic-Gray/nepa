@@ -1,0 +1,34 @@
+// Notification Service Database Schema
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/notification-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("NOTIFICATION_SERVICE_DATABASE_URL")
+}
+
+model NotificationPreference {
+  id        String   @id @default(uuid())
+  userId    String   @unique  // Reference to User service
+  email     Boolean  @default(true)
+  sms       Boolean  @default(false)
+  push      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NotificationLog {
+  id           String   @id @default(uuid())
+  userId       String   // Reference to User service
+  type         String
+  status       String
+  message      String?
+  scheduledFor DateTime?
+  createdAt    DateTime @default(now())
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}

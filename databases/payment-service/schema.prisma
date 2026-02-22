@@ -1,0 +1,33 @@
+// Payment Service Database Schema
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/payment-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PAYMENT_SERVICE_DATABASE_URL")
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  amount        Decimal       @db.Decimal(10, 2)
+  method        String
+  status        PaymentStatus @default(PENDING)
+  transactionId String?       @unique
+  billId        String        // Reference to Bill service
+  userId        String        // Reference to User service
+  createdAt     DateTime      @default(now())
+
+  @@index([billId])
+  @@index([userId])
+  @@index([transactionId])
+  @@index([status])
+  @@index([createdAt])
+}
