@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { isConnected, requestAccess, signTransaction } from "@stellar/freighter-api";
 import * as NepaClient from './contracts';
 import YieldDashboard from './components/YieldDashboard';
+import MobileNavigation from './components/MobileNavigation';
 
 function App() {
   const [currentView, setCurrentView] = useState<'payment' | 'yield'>('payment');
@@ -56,69 +57,71 @@ function App() {
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
-        <button
-          onClick={() => setCurrentView('payment')}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: currentView === 'payment' ? '#08c' : '#f0f0f0',
-            color: currentView === 'payment' ? 'white' : '#333',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          Bill Payment
-        </button>
-        <button
-          onClick={() => setCurrentView('yield')}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: currentView === 'yield' ? '#08c' : '#f0f0f0',
-            color: currentView === 'yield' ? 'white' : '#333',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          Yield Generation
-        </button>
+    <div className="min-h-screen bg-gray-50">
+      <MobileNavigation currentView={currentView} onViewChange={setCurrentView} />
+      
+      <div className="p-4 pt-0 lg:pt-8 lg:px-8 font-sans">
+        {currentView === 'payment' ? (
+          <div className="w-full max-w-md mx-auto sm:max-w-lg lg:max-w-xl">
+            <div className="text-center mb-8 mt-8 lg:mt-0">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-blue-600 mb-2">
+                NEPA 💡
+              </h1>
+              <p className="text-gray-600 text-sm sm:text-base">
+                Decentralized Utility Payments
+              </p>
+            </div>
+
+            <div className="space-y-4 sm:space-y-6">
+              <div className="relative">
+                <label htmlFor="meterId" className="block text-sm font-medium text-gray-700 mb-2">
+                  Meter Number
+                </label>
+                <input
+                  id="meterId"
+                  className="w-full px-4 py-4 text-base sm:text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all touch-manipulation"
+                  placeholder="e.g. METER-123"
+                  value={meterId}
+                  onChange={(e: any) => setMeterId(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="relative">
+                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount (XLM)
+                </label>
+                <input
+                  id="amount"
+                  className="w-full px-4 py-4 text-base sm:text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all touch-manipulation"
+                  placeholder="0.00"
+                  type="number"
+                  step="0.0000001"
+                  min="0"
+                  value={amount}
+                  onChange={(e: any) => setAmount(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+              <button
+                onClick={handlePayment}
+                disabled={!meterId || !amount || parseFloat(amount) <= 0}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-all touch-manipulation shadow-lg text-base sm:text-lg min-h-[48px] active:scale-95"
+              >
+                Pay Electricity Bill
+              </button>
+            </div>
+
+            <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-gray-100 rounded-lg min-h-[60px]">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <span className="font-semibold text-gray-800 mb-2 sm:mb-0">Status:</span>
+                <span className="text-gray-700 text-sm sm:text-base break-words">{status || 'Ready'}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <YieldDashboard />
+        )}
       </div>
-
-      {currentView === 'payment' ? (
-        <div style={{ maxWidth: '400px', margin: '0 auto' }}>
-          <h1 style={{ color: '#08c' }}>NEPA 💡</h1>
-          <p>Decentralized Utility Payments</p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
-            <input
-              style={{ padding: '10px', fontSize: '16px', borderRadius: '5px', border: '1px solid #ccc' }}
-              placeholder="Meter Number (e.g. METER-123)"
-              value={meterId}
-              onChange={(e: any) => setMeterId(e.target.value)}
-            />
-            <input
-              style={{ padding: '10px', fontSize: '16px', borderRadius: '5px', border: '1px solid #ccc' }}
-              placeholder="Amount in XLM"
-              type="number"
-              value={amount}
-              onChange={(e: any) => setAmount(e.target.value)}
-            />
-            <button
-              onClick={handlePayment}
-              style={{ backgroundColor: '#08c', color: 'white', padding: '12px', fontSize: '16px', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-              Pay Electricity Bill
-            </button>
-          </div>
-
-          <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f0f0f0', borderRadius: '5px', minHeight: '20px' }}>
-            <strong>Status:</strong> <span style={{ color: '#333' }}>{status}</span>
-          </div>
-        </div>
-      ) : (
-        <YieldDashboard />
-      )}
     </div>
   );
 }
