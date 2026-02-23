@@ -1,0 +1,20 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY tsconfig.json ./
+
+RUN npm ci --only=production
+
+COPY databases ./databases
+COPY microservices/shared ./microservices/shared
+
+ARG SERVICE_NAME
+COPY microservices/${SERVICE_NAME} ./microservices/${SERVICE_NAME}
+
+RUN npm run db:generate-all
+
+EXPOSE ${PORT}
+
+CMD ["node", "-r", "ts-node/register", "microservices/${SERVICE_NAME}/index.ts"]

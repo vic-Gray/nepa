@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  user-service:
+    build:
+      context: .
+      dockerfile: microservices/user-service/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - USER_SERVICE_PORT=3001
+      - DATABASE_URL=${USER_DATABASE_URL}
+    depends_on:
+      - postgres-user
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: microservices/payment-service/Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - PAYMENT_SERVICE_PORT=3002
+      - DATABASE_URL=${PAYMENT_DATABASE_URL}
+    depends_on:
+      - postgres-payment
+
+  billing-service:
+    build:
+      context: .
+      dockerfile: microservices/billing-service/Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - BILLING_SERVICE_PORT=3003
+      - DATABASE_URL=${BILLING_DATABASE_URL}
+    depends_on:
+      - postgres-billing
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: microservices/notification-service/Dockerfile
+    ports:
+      - "3004:3004"
+    environment:
+      - NOTIFICATION_SERVICE_PORT=3004
+      - DATABASE_URL=${NOTIFICATION_DATABASE_URL}
+    depends_on:
+      - postgres-notification
+
+  document-service:
+    build:
+      context: .
+      dockerfile: microservices/document-service/Dockerfile
+    ports:
+      - "3005:3005"
+    environment:
+      - DOCUMENT_SERVICE_PORT=3005
+      - DATABASE_URL=${DOCUMENT_DATABASE_URL}
+    depends_on:
+      - postgres-document
+
+  utility-service:
+    build:
+      context: .
+      dockerfile: microservices/utility-service/Dockerfile
+    ports:
+      - "3006:3006"
+    environment:
+      - UTILITY_SERVICE_PORT=3006
+      - DATABASE_URL=${UTILITY_DATABASE_URL}
+    depends_on:
+      - postgres-utility
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: microservices/analytics-service/Dockerfile
+    ports:
+      - "3007:3007"
+    environment:
+      - ANALYTICS_SERVICE_PORT=3007
+      - DATABASE_URL=${ANALYTICS_DATABASE_URL}
+    depends_on:
+      - postgres-analytics
+
+  webhook-service:
+    build:
+      context: .
+      dockerfile: microservices/webhook-service/Dockerfile
+    ports:
+      - "3008:3008"
+    environment:
+      - WEBHOOK_SERVICE_PORT=3008
+      - DATABASE_URL=${WEBHOOK_DATABASE_URL}
+    depends_on:
+      - postgres-webhook
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: microservices/api-gateway/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - API_GATEWAY_PORT=3000
+      - USER_SERVICE_URL=http://user-service:3001
+      - PAYMENT_SERVICE_URL=http://payment-service:3002
+      - BILLING_SERVICE_URL=http://billing-service:3003
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3004
+      - DOCUMENT_SERVICE_URL=http://document-service:3005
+      - UTILITY_SERVICE_URL=http://utility-service:3006
+      - ANALYTICS_SERVICE_URL=http://analytics-service:3007
+      - WEBHOOK_SERVICE_URL=http://webhook-service:3008
+    depends_on:
+      - user-service
+      - payment-service
+      - billing-service
+      - notification-service
+      - document-service
+      - utility-service
+      - analytics-service
+      - webhook-service

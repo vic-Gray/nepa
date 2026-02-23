@@ -114,6 +114,10 @@
     "contract:build": "cd nepa-dapp/nepa_contract && cargo build --release --target wasm32-unknown-unknown",
     "contract:test": "cd nepa-dapp/nepa_contract && cargo test",
     "contract:deploy": "node scripts/deploy_upgrade.js",
-    "contract:migrate": "node scripts/migrate_contract.js"
+    "contract:migrate": "node scripts/migrate_contract.js",
+    "microservices:start": "bash scripts/start-microservices.sh",
+    "microservices:docker-up": "docker-compose -f docker-compose.microservices.yml up -d",
+    "microservices:docker-down": "docker-compose -f docker-compose.microservices.yml down",
+    "microservices:docker-build": "docker-compose -f docker-compose.microservices.yml build"
   }
 }
