@@ -1,9 +1,11 @@
 import express from 'express';
 import { paymentClient } from '../../databases/clients';
 import EventBus from '../../databases/event-patterns/EventBus';
-import { createPaymentSuccessEvent } from '../../databases/event-patterns/events';
+import MessageBroker from '../../databases/event-patterns/MessageBroker';
+import { createPaymentSuccessEvent, createPaymentFailedEvent } from '../../databases/event-patterns/events';
 import { errorHandler } from '../shared/middleware/errorHandler';
 import { sendSuccess, sendError } from '../shared/utils/response';
+import '../../databases/event-patterns/handlers';
 
 const app = express();
 const PORT = process.env.PAYMENT_SERVICE_PORT || 3002;
@@ -17,9 +19,17 @@ app.get('/health', (req, res) => {
 app.post('/payments', async (req, res, next) => {
   try {
     const payment = await paymentClient.payment.create({ data: req.body });
-    EventBus.publish(createPaymentSuccessEvent(payment.id, req.body.billId, req.body.userId, req.body.amount));
+    const event = createPaymentSuccessEvent(payment.id, req.body.billId, req.body.userId, req.body.amount);
+    
+    // Publish to both in-memory and message broker
+    EventBus.publish(event);
+    await MessageBroker.publish(event);
+    
     sendSuccess(res, payment, 201);
   } catch (error) {
+    const failEvent = createPaymentFailedEvent(req.body.paymentId, req.body.billId, req.body.userId, error.message);
+    EventBus.publish(failEvent);
+    await MessageBroker.publish(failEvent);
     next(error);
   }
 });

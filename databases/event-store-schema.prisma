@@ -1,0 +1,13 @@
+model EventStore {
+  id          String   @id @default(uuid())
+  eventId     String   @unique
+  eventType   String
+  aggregateId String
+  payload     String
+  metadata    String
+  timestamp   DateTime @default(now())
+  
+  @@index([aggregateId])
+  @@index([eventType])
+  @@index([timestamp])
+}

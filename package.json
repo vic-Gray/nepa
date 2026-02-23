@@ -2,6 +2,7 @@
   "dependencies": {
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^14.5.0",
+    "amqplib": "^0.10.3",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "rate-limit-redis": "^4.2.0",
@@ -49,6 +50,7 @@
     "@types/node": "^20.8.0",
     "@types/cors": "^2.8.15",
     "@types/multer": "^1.4.9",
+    "@types/amqplib": "^0.10.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/speakeasy": "^2.0.10",
@@ -118,6 +120,10 @@
     "microservices:start": "bash scripts/start-microservices.sh",
     "microservices:docker-up": "docker-compose -f docker-compose.microservices.yml up -d",
     "microservices:docker-down": "docker-compose -f docker-compose.microservices.yml down",
-    "microservices:docker-build": "docker-compose -f docker-compose.microservices.yml build"
+    "microservices:docker-build": "docker-compose -f docker-compose.microservices.yml build",
+    "messaging:start": "docker-compose -f docker-compose.messaging.yml up -d",
+    "messaging:stop": "docker-compose -f docker-compose.messaging.yml down",
+    "messaging:logs": "docker-compose -f docker-compose.messaging.yml logs -f",
+    "test:events": "ts-node scripts/test-events.ts"
   }
 }
