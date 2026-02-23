@@ -35,6 +35,13 @@ for db_name in "${!DATABASES[@]}"; do
   # Compress backup
   gzip $backup_file
   echo "✅ $db_name backed up to ${backup_file}.gz"
+
+  # Data Replication
+  if [ "$UPLOAD_TO_S3" = "true" ] && [ -n "$S3_BUCKET_NAME" ]; then
+    echo "☁️ Uploading ${backup_file}.gz to S3 bucket $S3_BUCKET_NAME..."
+    aws s3 cp "${backup_file}.gz" "s3://$S3_BUCKET_NAME/backups/$(date +%Y%m%d)/$(basename ${backup_file}).gz"
+    echo "✅ Uploaded to S3 for geographic redundancy."
+  fi
 done
 
 # Clean up old backups (keep last 30 days)
