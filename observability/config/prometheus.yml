@@ -1,0 +1,113 @@
+# Prometheus configuration for metrics collection
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'nepa-production'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # User Service
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:3001']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Notification Service
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:3002']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Document Service
+  - job_name: 'document-service'
+    static_configs:
+      - targets: ['document-service:3003']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Utility Service
+  - job_name: 'utility-service'
+    static_configs:
+      - targets: ['utility-service:3004']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Payment Service
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:3005']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Billing Service
+  - job_name: 'billing-service'
+    static_configs:
+      - targets: ['billing-service:3006']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Analytics Service
+  - job_name: 'analytics-service'
+    static_configs:
+      - targets: ['analytics-service:3007']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Webhook Service
+  - job_name: 'webhook-service'
+    static_configs:
+      - targets: ['webhook-service:3008']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # PostgreSQL Exporters
+  - job_name: 'postgres-user-db'
+    static_configs:
+      - targets: ['postgres-exporter-user:9187']
+
+  - job_name: 'postgres-notification-db'
+    static_configs:
+      - targets: ['postgres-exporter-notification:9187']
+
+  - job_name: 'postgres-payment-db'
+    static_configs:
+      - targets: ['postgres-exporter-payment:9187']
+
+  - job_name: 'postgres-billing-db'
+    static_configs:
+      - targets: ['postgres-exporter-billing:9187']
+
+  # Redis Exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Node Exporter (system metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Jaeger (tracing metrics)
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['jaeger:14269']

@@ -1,0 +1,192 @@
+# Prometheus Alert Rules
+groups:
+  - name: service_health
+    interval: 30s
+    rules:
+      # Service Down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been down for more than 1 minute"
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: errors
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.service }}"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High response time on {{ $labels.service }}"
+          description: "95th percentile response time is {{ $value }}s on {{ $labels.service }}"
+
+  - name: database_health
+    interval: 30s
+    rules:
+      # Database Connection Pool Exhausted
+      - alert: DatabaseConnectionPoolExhausted
+        expr: (pg_stat_activity_count / pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "{{ $labels.datname }} is using {{ $value | humanizePercentage }} of available connections"
+
+      # High Database Query Time
+      - alert: HighDatabaseQueryTime
+        expr: rate(pg_stat_statements_mean_exec_time[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "High database query time"
+          description: "Average query time is {{ $value }}ms on {{ $labels.datname }}"
+
+      # Database Replication Lag
+      - alert: DatabaseReplicationLag
+        expr: pg_replication_lag > 10
+        for: 5m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Database replication lag detected"
+          description: "Replication lag is {{ $value }}s on {{ $labels.datname }}"
+
+  - name: payment_service
+    interval: 30s
+    rules:
+      # Payment Failure Rate
+      - alert: HighPaymentFailureRate
+        expr: rate(payment_transactions_total{status="failed"}[5m]) / rate(payment_transactions_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: business
+          service: payment-service
+        annotations:
+          summary: "High payment failure rate"
+          description: "Payment failure rate is {{ $value | humanizePercentage }}"
+
+      # Payment Processing Time
+      - alert: SlowPaymentProcessing
+        expr: histogram_quantile(0.95, rate(payment_processing_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+          service: payment-service
+        annotations:
+          summary: "Slow payment processing"
+          description: "95th percentile payment processing time is {{ $value }}s"
+
+  - name: resource_usage
+    interval: 30s
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High CPU usage on {{ $labels.job }}"
+          description: "CPU usage is {{ $value }}% on {{ $labels.job }}"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (process_resident_memory_bytes / node_memory_MemTotal_bytes) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High memory usage on {{ $labels.job }}"
+          description: "Memory usage is {{ $value }}% on {{ $labels.job }}"
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          category: resources
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Only {{ $value }}% disk space remaining on {{ $labels.mountpoint }}"
+
+  - name: sla_monitoring
+    interval: 1m
+    rules:
+      # SLA Violation - Availability
+      - alert: SLAAvailabilityViolation
+        expr: avg_over_time(up[1h]) < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          category: sla
+        annotations:
+          summary: "SLA availability violation"
+          description: "Service {{ $labels.job }} availability is {{ $value | humanizePercentage }} (SLA: 99.9%)"
+
+      # SLA Violation - Response Time
+      - alert: SLAResponseTimeViolation
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[1h])) > 2
+        for: 5m
+        labels:
+          severity: critical
+          category: sla
+        annotations:
+          summary: "SLA response time violation"
+          description: "99th percentile response time is {{ $value }}s (SLA: 2s)"
+
+  - name: anomaly_detection
+    interval: 5m
+    rules:
+      # Unusual Traffic Pattern
+      - alert: UnusualTrafficPattern
+        expr: |
+          abs(rate(http_requests_total[5m]) - 
+          avg_over_time(rate(http_requests_total[5m])[1h:5m])) > 
+          2 * stddev_over_time(rate(http_requests_total[5m])[1h:5m])
+        for: 10m
+        labels:
+          severity: warning
+          category: anomaly
+        annotations:
+          summary: "Unusual traffic pattern detected"
+          description: "Traffic on {{ $labels.service }} deviates significantly from normal"
+
+      # Unusual Error Rate
+      - alert: UnusualErrorRate
+        expr: |
+          abs(rate(http_requests_total{status=~"5.."}[5m]) - 
+          avg_over_time(rate(http_requests_total{status=~"5.."}[5m])[1h:5m])) > 
+          2 * stddev_over_time(rate(http_requests_total{status=~"5.."}[5m])[1h:5m])
+        for: 10m
+        labels:
+          severity: warning
+          category: anomaly
+        annotations:
+          summary: "Unusual error rate detected"
+          description: "Error rate on {{ $labels.service }} deviates significantly from normal"

@@ -178,6 +178,40 @@ npm run lint         # Lint code
 npm run type-check   # TypeScript type checking
 ```
 
+## 📊 Observability
+
+### Start Monitoring Stack
+
+```bash
+# Start all observability services
+npm run observability:start
+
+# Test observability
+npm run observability:test
+
+# View logs
+npm run observability:logs
+```
+
+### Access Dashboards
+
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **Jaeger**: http://localhost:16686
+- **Alertmanager**: http://localhost:9093
+
+### Features
+
+- **Structured Logging**: JSON logs with correlation IDs
+- **Distributed Tracing**: OpenTelemetry + Jaeger
+- **Metrics Collection**: Prometheus + Grafana
+- **Log Aggregation**: Loki + Promtail
+- **Alerting**: Alertmanager with Slack/PagerDuty
+- **SLA Monitoring**: Automated SLA tracking
+- **Anomaly Detection**: ML-based anomaly detection
+
+See [Observability Documentation](./observability/README.md) for details.
+
 ## 🌟 Features
 
 - ✅ Microservices architecture with database per service
@@ -190,6 +224,8 @@ npm run type-check   # TypeScript type checking
 - ✅ Comprehensive analytics and reporting
 - ✅ Real-time notifications
 - ✅ Automated backups and disaster recovery
+- ✅ Distributed monitoring and observability
+- ✅ SLA tracking and anomaly detection
 
 ## 📝 License
 
