@@ -1,8 +1,9 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { apiLimiter, ddosDetector, checkBlockedIP, ipRestriction, progressiveLimiter, authLimiter } from './middleware/rateLimiter';
+import { advancedRateLimiter, burstHandler } from './middleware/advancedRateLimiter';
 import { configureSecurity } from './middleware/security';
-import { apiKeyAuth } from './middleware/auth';
+import { apiKeyAuth } from './src/config/auth';
 import { authenticate, authorize, optionalAuth } from './middleware/authentication';
 import { loggingMiddleware, setupGlobalErrorHandling, errorTracker } from './middleware/logger';
 import { errorTracker as abuseDetector } from './middleware/abuseDetection';
@@ -11,7 +12,7 @@ import { upload } from './middleware/upload';
 import { uploadDocument } from './controllers/DocumentController';
 import { getDashboardData, generateReport, exportData } from './controllers/AnalyticsController';
 import { applyPaymentSecurity, processPayment, getPaymentHistory, validatePayment } from './controllers/PaymentController';
-
+import { setupRateLimitRoutes } from './routes/rateLimitRoutes';
 
 const app = express();
 
@@ -52,16 +53,19 @@ app.use(express.json({ limit: '10kb' })); // Limit body size for security
 // 5. Progressive Rate Limiting
 app.use('/api', progressiveLimiter);
 
-// 6. General API Rate Limiting
-app.use('/api', apiLimiter);
+// 6. Advanced Rate Limiting (replaces basic rate limiting)
+app.use('/api', advancedRateLimiter);
 
 // 7. Error tracking for abuse detection
 app.use(abuseDetector);
 
-// 8. API Documentation
+// 8. Setup rate limiting routes
+setupRateLimitRoutes(app);
+
+// 9. API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// 9. Enhanced Health Check
+// 10. Enhanced Health Check
 app.get('/health', (req, res) => {
   const healthStatus = performanceMonitor.getHealthStatus();
   const memoryUsage = performanceMonitor.getMemoryUsage();
