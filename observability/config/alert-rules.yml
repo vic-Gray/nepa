@@ -1,5 +1,41 @@
 # Prometheus Alert Rules
 groups:
+  - name: api_gateway_performance
+    interval: 30s
+    rules:
+      - alert: APIGatewayHighP95Latency
+        expr: gateway_latency_p95_ms > 500
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+          service: api-gateway
+        annotations:
+          summary: "API gateway p95 latency is high"
+          description: "Gateway p95 latency is {{ $value }}ms for more than 5 minutes"
+
+      - alert: APIGatewayHighUpstreamErrors
+        expr: rate(gateway_upstream_errors_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+          category: errors
+          service: api-gateway
+        annotations:
+          summary: "API gateway upstream errors are high"
+          description: "Gateway upstream error rate is {{ $value }} errors/sec"
+
+      - alert: APIGatewayLowCacheHitRatio
+        expr: gateway_cache_hit_ratio < 0.1
+        for: 15m
+        labels:
+          severity: warning
+          category: performance
+          service: api-gateway
+        annotations:
+          summary: "API gateway cache hit ratio is low"
+          description: "Gateway cache hit ratio dropped below 10% for more than 15 minutes"
+
   - name: service_health
     interval: 30s
     rules:

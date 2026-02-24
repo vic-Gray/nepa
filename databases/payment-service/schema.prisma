@@ -30,4 +30,5 @@ model Payment {
   @@index([transactionId])
   @@index([status])
   @@index([createdAt])
+  @@index([userId, createdAt(sort: Desc)])
 }

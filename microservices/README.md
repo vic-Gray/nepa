@@ -45,6 +45,9 @@ Each service exposes `/health` endpoint:
 - etc.
 
 Gateway aggregates all health checks at `http://localhost:3000/health`
+Gateway performance metrics:
+- JSON metrics: `http://localhost:3000/metrics`
+- Prometheus metrics: `http://localhost:3000/metrics/prometheus`
 
 ## Environment Variables
 
@@ -58,6 +61,24 @@ UTILITY_SERVICE_PORT=3006
 ANALYTICS_SERVICE_PORT=3007
 WEBHOOK_SERVICE_PORT=3008
 API_GATEWAY_PORT=3000
+
+# Gateway performance tuning
+GATEWAY_REQUEST_TIMEOUT_MS=4000
+GATEWAY_CACHE_TTL_MS=10000
+GATEWAY_CACHE_MAX_ENTRIES=1000
+GATEWAY_MAX_SOCKETS=2048
+GATEWAY_MAX_FREE_SOCKETS=256
+GATEWAY_KEEP_ALIVE_MS=5000
+GATEWAY_SLOW_REQUEST_THRESHOLD_MS=500
+
+# Optional CDN redirect for /assets/*
+CDN_BASE_URL=https://cdn.example.com
+
+# Prisma connection pooling defaults
+DB_CONNECTION_LIMIT=20
+DB_POOL_TIMEOUT_SECONDS=15
+DB_CONNECT_TIMEOUT_SECONDS=10
+DB_USE_PGBOUNCER=false
 ```
 
 ## Migration Benefits
