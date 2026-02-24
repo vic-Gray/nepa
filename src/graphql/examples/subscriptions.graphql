@@ -1,0 +1,446 @@
+# NEPA GraphQL API - Example Subscriptions
+# This file contains real-time subscription examples for the NEPA platform
+
+# ===========================================
+# USER SUBSCRIPTIONS
+# ===========================================
+
+# Subscribe to user profile updates
+subscription UserUpdated($userId: ID!) {
+  userUpdated(userId: $userId) {
+    id
+    email
+    username
+    name
+    phoneNumber
+    avatar
+    role
+    status
+    updatedAt
+    profiles {
+      bio
+      location
+      website
+      timezone
+      language
+      currency
+      theme
+    }
+  }
+}
+
+# Example variables for UserUpdated subscription:
+# {
+#   "userId": "user-id-here"
+# }
+
+# ===========================================
+# BILL SUBSCRIPTIONS
+# ===========================================
+
+# Subscribe to new bills created for a user
+subscription BillCreated($userId: ID!) {
+  billCreated(userId: $userId) {
+    id
+    amount
+    lateFee
+    discount
+    dueDate
+    status
+    createdAt
+    utility {
+      id
+      name
+      type
+      provider
+    }
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Subscribe to bill status updates for a user
+subscription BillUpdated($userId: ID!) {
+  billUpdated(userId: $userId) {
+    id
+    amount
+    lateFee
+    discount
+    dueDate
+    status
+    createdAt
+    updatedAt
+    utility {
+      id
+      name
+      type
+      provider
+    }
+    user {
+      id
+      email
+      name
+    }
+    payments {
+      edges {
+        node {
+          id
+          amount
+          method
+          status
+          transactionId
+          createdAt
+        }
+      }
+    }
+  }
+}
+
+# Example variables for Bill subscriptions:
+# {
+#   "userId": "user-id-here"
+# }
+
+# ===========================================
+# PAYMENT SUBSCRIPTIONS
+# ===========================================
+
+# Subscribe to payment processing events for a user
+subscription PaymentProcessed($userId: ID!) {
+  paymentProcessed(userId: $userId) {
+    id
+    amount
+    method
+    status
+    transactionId
+    createdAt
+    bill {
+      id
+      amount
+      status
+      dueDate
+      utility {
+        name
+        type
+        provider
+      }
+    }
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Subscribe to payment status updates for a user
+subscription PaymentUpdated($userId: ID!) {
+  paymentUpdated(userId: $userId) {
+    id
+    amount
+    method
+    status
+    transactionId
+    createdAt
+    bill {
+      id
+      amount
+      status
+      dueDate
+      utility {
+        name
+        type
+      }
+    }
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Example variables for Payment subscriptions:
+# {
+#   "userId": "user-id-here"
+# }
+
+# ===========================================
+# NOTIFICATION SUBSCRIPTIONS
+# ===========================================
+
+# Subscribe to real-time notifications for a user
+subscription NotificationReceived($userId: ID!) {
+  notificationReceived(userId: $userId) {
+    id
+    userId
+    type
+    title
+    message
+    data
+    isRead
+    createdAt
+  }
+}
+
+# Example variables for NotificationReceived subscription:
+# {
+#   "userId": "user-id-here"
+# }
+
+# ===========================================
+# SYSTEM EVENT SUBSCRIPTIONS
+# ===========================================
+
+# Subscribe to payment success events
+subscription PaymentSuccessEvents {
+  systemEvent(event: "PAYMENT_SUCCESS") {
+    id
+    type
+    data
+    timestamp
+  }
+}
+
+# Subscribe to bill creation events
+subscription BillCreatedEvents {
+  systemEvent(event: "BILL_CREATED") {
+    id
+    type
+    data
+    timestamp
+  }
+}
+
+# Subscribe to user registration events
+subscription UserRegisteredEvents {
+  systemEvent(event: "USER_REGISTERED") {
+    id
+    type
+    data
+    timestamp
+  }
+}
+
+# Subscribe to webhook events
+subscription WebhookTriggeredEvents {
+  systemEvent(event: "WEBHOOK_TRIGGERED") {
+    id
+    type
+    data
+    timestamp
+  }
+}
+
+# Subscribe to system error events
+subscription SystemErrorEvents {
+  systemEvent(event: "SYSTEM_ERROR") {
+    id
+    type
+    data
+    timestamp
+  }
+}
+
+# ===========================================
+# ADVANCED SUBSCRIPTION EXAMPLES
+# ===========================================
+
+# Multiple subscriptions for comprehensive monitoring
+subscription ComprehensiveUserMonitoring($userId: ID!) {
+  # This would be multiple separate subscriptions in practice
+  # GraphQL doesn't support multiple subscription fields in one operation
+  # Each subscription would be established separately
+}
+
+# Real-time dashboard updates (Admin)
+subscription DashboardUpdates {
+  systemEvent(event: "DASHBOARD_UPDATE") {
+    id
+    type
+    data {
+      totalUsers
+      totalBills
+      totalPayments
+      totalRevenue
+      recentActivity
+    }
+    timestamp
+  }
+}
+
+# Payment processing workflow monitoring
+subscription PaymentWorkflow($userId: ID!) {
+  systemEvent(event: "PAYMENT_WORKFLOW") {
+    id
+    type
+    data {
+      paymentId
+      billId
+      userId
+      status
+      step
+      timestamp
+      metadata
+    }
+    timestamp
+  }
+}
+
+# ===========================================
+# CLIENT-SIDE IMPLEMENTATION EXAMPLES
+# ===========================================
+
+# Example WebSocket client setup (JavaScript):
+/*
+import { createClient } from 'graphql-ws';
+import { gql } from 'graphql-tag';
+
+const client = createClient({
+  url: 'ws://localhost:4000/graphql',
+  connectionParams: {
+    authorization: 'Bearer YOUR_JWT_TOKEN',
+  },
+});
+
+// Subscribe to payment updates
+const subscription = client.subscribe({
+  query: gql`
+    subscription PaymentProcessed($userId: ID!) {
+      paymentProcessed(userId: $userId) {
+        id
+        amount
+        status
+        transactionId
+        createdAt
+        bill {
+          id
+          amount
+          status
+        }
+      }
+    }
+  `,
+  variables: {
+    userId: 'user-id-here',
+  },
+});
+
+subscription.subscribe({
+  next: (data) => {
+    console.log('Payment processed:', data);
+    // Update UI with new payment data
+  },
+  error: (err) => {
+    console.error('Subscription error:', err);
+  },
+  complete: () => {
+    console.log('Subscription completed');
+  },
+});
+*/
+
+# Example React component using subscriptions:
+/*
+import { useSubscription } from '@apollo/client';
+import { gql } from '@apollo-tag';
+
+const PAYMENT_PROCESSED_SUBSCRIPTION = gql`
+  subscription PaymentProcessed($userId: ID!) {
+    paymentProcessed(userId: $userId) {
+      id
+      amount
+      status
+      transactionId
+      createdAt
+      bill {
+        id
+        amount
+        status
+      }
+    }
+  }
+`;
+
+function PaymentNotifications({ userId }) {
+  const { data, loading, error } = useSubscription(PAYMENT_PROCESSED_SUBSCRIPTION, {
+    variables: { userId },
+  });
+
+  if (loading) return <div>Listening for payment updates...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <div>
+      <h3>New Payment Processed!</h3>
+      <p>Payment ID: {data.paymentProcessed.id}</p>
+      <p>Amount: ${data.paymentProcessed.amount}</p>
+      <p>Status: {data.paymentProcessed.status}</p>
+      <p>Transaction ID: {data.paymentProcessed.transactionId}</p>
+    </div>
+  );
+}
+*/
+
+# Example error handling and reconnection logic:
+/*
+import { createClient } from 'graphql-ws';
+
+class GraphQLSubscriptionManager {
+  constructor(url, connectionParams = {}) {
+    this.client = createClient({
+      url,
+      connectionParams,
+      retryAttempts: 5,
+      shouldRetry: () => true,
+    });
+    this.subscriptions = new Map();
+  }
+
+  subscribe(query, variables, onNext, onError, onComplete) {
+    const subscription = this.client.subscribe({ query, variables });
+    
+    subscription.subscribe({
+      next: onNext,
+      error: (error) => {
+        console.error('Subscription error:', error);
+        if (onError) onError(error);
+        // Implement reconnection logic here
+      },
+      complete: onComplete,
+    });
+
+    return subscription;
+  }
+
+  unsubscribe(subscriptionId) {
+    if (this.subscriptions.has(subscriptionId)) {
+      this.subscriptions.get(subscriptionId).unsubscribe();
+      this.subscriptions.delete(subscriptionId);
+    }
+  }
+
+  unsubscribeAll() {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions.clear();
+  }
+}
+
+// Usage
+const subscriptionManager = new GraphQLSubscriptionManager(
+  'ws://localhost:4000/graphql',
+  {
+    authorization: 'Bearer YOUR_JWT_TOKEN',
+  }
+);
+
+const paymentSubscription = subscriptionManager.subscribe(
+  PAYMENT_PROCESSED_SUBSCRIPTION,
+  { userId: 'user-id-here' },
+  (data) => console.log('Payment update:', data),
+  (error) => console.error('Payment subscription error:', error)
+);
+*/

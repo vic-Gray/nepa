@@ -1,0 +1,587 @@
+# GraphQL Schema for NEPA Platform
+# This schema provides efficient data fetching with strong typing
+
+scalar DateTime
+scalar Decimal
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum BillStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+enum TwoFactorMethod {
+  NONE
+  EMAIL
+  SMS
+  AUTHENTICATOR_APP
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CREDIT_CARD
+  CRYPTO
+  STELLAR
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED
+}
+
+type User {
+  id: ID!
+  email: String!
+  username: String
+  name: String
+  phoneNumber: String
+  avatar: String
+  role: UserRole!
+  status: UserStatus!
+  walletAddress: String
+  isEmailVerified: Boolean!
+  isPhoneVerified: Boolean!
+  twoFactorEnabled: Boolean!
+  twoFactorMethod: TwoFactorMethod!
+  lastLoginAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # Relations
+  bills(first: Int, after: String, where: BillWhereInput): BillConnection!
+  payments(first: Int, after: String, where: PaymentWhereInput): PaymentConnection!
+  profiles: [UserProfile!]!
+  notificationPreference: NotificationPreference
+  documents(first: Int, after: String): DocumentConnection!
+  reports(first: Int, after: String): ReportConnection!
+  webhooks(first: Int, after: String): WebhookConnection!
+}
+
+type UserProfile {
+  id: ID!
+  userId: String!
+  bio: String
+  location: String
+  website: String
+  timezone: String
+  language: String
+  currency: String
+  theme: String
+  preferences: JSON
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  user: User!
+}
+
+type NotificationPreference {
+  id: ID!
+  userId: String!
+  email: Boolean!
+  sms: Boolean!
+  push: Boolean!
+  inApp: Boolean!
+  preferences: JSON
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  user: User!
+}
+
+type Utility {
+  id: ID!
+  name: String!
+  type: String!
+  provider: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # Relations
+  bills(first: Int, after: String, where: BillWhereInput): BillConnection!
+}
+
+type Bill {
+  id: ID!
+  amount: Decimal!
+  lateFee: Decimal!
+  discount: Decimal!
+  dueDate: DateTime!
+  status: BillStatus!
+  userId: String!
+  utilityId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # Relations
+  user: User!
+  utility: Utility!
+  payments(first: Int, after: String): PaymentConnection!
+}
+
+type Coupon {
+  id: ID!
+  code: String!
+  amount: Decimal!
+  type: CouponType!
+  expiryDate: DateTime!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Payment {
+  id: ID!
+  amount: Decimal!
+  method: PaymentMethod!
+  status: PaymentStatus!
+  transactionId: String
+  billId: String!
+  userId: String!
+  createdAt: DateTime!
+  
+  # Relations
+  bill: Bill!
+  user: User!
+}
+
+type Document {
+  id: ID!
+  userId: String!
+  filename: String!
+  originalName: String!
+  mimeType: String!
+  size: Int!
+  path: String!
+  isPublic: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # Relations
+  user: User!
+}
+
+type Report {
+  id: ID!
+  userId: String!
+  name: String!
+  type: String!
+  description: String
+  parameters: JSON
+  status: String!
+  generatedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # Relations
+  user: User!
+}
+
+type Webhook {
+  id: ID!
+  userId: String!
+  url: String!
+  events: [String!]!
+  secret: String!
+  isActive: Boolean!
+  retryCount: Int!
+  lastTriggered: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # Relations
+  user: User!
+}
+
+type AuditLog {
+  id: ID!
+  userId: String!
+  action: String!
+  resource: String!
+  resourceId: String
+  oldValues: JSON
+  newValues: JSON
+  ipAddress: String!
+  userAgent: String!
+  timestamp: DateTime!
+  
+  # Relations
+  user: User!
+}
+
+# Connection types for pagination
+type BillConnection {
+  edges: [BillEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type BillEdge {
+  node: Bill!
+  cursor: String!
+}
+
+type PaymentConnection {
+  edges: [PaymentEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PaymentEdge {
+  node: Payment!
+  cursor: String!
+}
+
+type DocumentConnection {
+  edges: [DocumentEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type DocumentEdge {
+  node: Document!
+  cursor: String!
+}
+
+type ReportConnection {
+  edges: [ReportEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ReportEdge {
+  node: Report!
+  cursor: String!
+}
+
+type WebhookConnection {
+  edges: [WebhookEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type WebhookEdge {
+  node: Webhook!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# Input types
+input UserWhereInput {
+  id: ID
+  email: String
+  username: String
+  name: String
+  role: UserRole
+  status: UserStatus
+  isEmailVerified: Boolean
+  isPhoneVerified: Boolean
+}
+
+input BillWhereInput {
+  id: ID
+  userId: String
+  utilityId: String
+  status: BillStatus
+  dueDate: DateTimeFilter
+  amount: DecimalFilter
+}
+
+input PaymentWhereInput {
+  id: ID
+  userId: String
+  billId: String
+  status: PaymentStatus
+  method: PaymentMethod
+  createdAt: DateTimeFilter
+}
+
+input DateTimeFilter {
+  equals: DateTime
+  in: [DateTime!]
+  notIn: [DateTime!]
+  lt: DateTime
+  lte: DateTime
+  gt: DateTime
+  gte: DateTime
+}
+
+input DecimalFilter {
+  equals: Decimal
+  in: [Decimal!]
+  notIn: [Decimal!]
+  lt: Decimal
+  lte: Decimal
+  gt: Decimal
+  gte: Decimal
+}
+
+input CreateUserInput {
+  email: String!
+  username: String
+  name: String
+  phoneNumber: String
+  password: String
+  role: UserRole
+}
+
+input UpdateUserInput {
+  name: String
+  username: String
+  phoneNumber: String
+  avatar: String
+  role: UserRole
+  status: UserStatus
+}
+
+input UpdateUserProfileInput {
+  bio: String
+  location: String
+  website: String
+  timezone: String
+  language: String
+  currency: String
+  theme: String
+  preferences: JSON
+}
+
+input CreateBillInput {
+  amount: Decimal!
+  utilityId: String!
+  dueDate: DateTime!
+  lateFee: Decimal
+  discount: Decimal
+}
+
+input ProcessPaymentInput {
+  billId: String!
+  amount: Decimal!
+  method: PaymentMethod!
+  couponCode: String
+}
+
+input CreateWebhookInput {
+  url: String!
+  events: [String!]!
+  secret: String!
+}
+
+# Auth payload
+type AuthPayload {
+  token: String!
+  refreshToken: String!
+  user: User!
+}
+
+# Query type
+type Query {
+  # User queries
+  me: User
+  user(id: ID!): User
+  users(first: Int, after: String, where: UserWhereInput): UserConnection!
+  
+  # Bill queries
+  bill(id: ID!): Bill
+  bills(first: Int, after: String, where: BillWhereInput): BillConnection!
+  myBills(first: Int, after: String, where: BillWhereInput): BillConnection!
+  
+  # Payment queries
+  payment(id: ID!): Payment
+  payments(first: Int, after: String, where: PaymentWhereInput): PaymentConnection!
+  myPayments(first: Int, after: String, where: PaymentWhereInput): PaymentConnection!
+  
+  # Utility queries
+  utility(id: ID!): Utility
+  utilities: [Utility!]!
+  
+  # Document queries
+  document(id: ID!): Document
+  documents(first: Int, after: String): DocumentConnection!
+  myDocuments(first: Int, after: String): DocumentConnection!
+  
+  # Report queries
+  report(id: ID!): Report
+  reports(first: Int, after: String): ReportConnection!
+  myReports(first: Int, after: String): ReportConnection!
+  
+  # Webhook queries
+  webhook(id: ID!): Webhook
+  webhooks(first: Int, after: String): WebhookConnection!
+  myWebhooks(first: Int, after: String): WebhookConnection!
+  
+  # Analytics queries
+  dashboard: DashboardData!
+  
+  # Coupon queries
+  coupon(code: String!): Coupon
+  coupons: [Coupon!]!
+}
+
+# Mutation type
+type Mutation {
+  # Authentication mutations
+  register(input: CreateUserInput!): AuthPayload!
+  login(email: String!, password: String!): AuthPayload!
+  loginWithWallet(walletAddress: String!): AuthPayload!
+  refreshToken(refreshToken: String!): AuthPayload!
+  logout: Boolean!
+  
+  # User mutations
+  updateProfile(input: UpdateUserProfileInput!): User!
+  changePassword(currentPassword: String!, newPassword: String!): Boolean!
+  enableTwoFactor(method: TwoFactorMethod!): TwoFactorSetup!
+  verifyTwoFactor(token: String!): Boolean!
+  
+  # Bill mutations
+  createBill(input: CreateBillInput!): Bill!
+  updateBill(id: ID!, input: UpdateBillInput!): Bill!
+  deleteBill(id: ID!): Boolean!
+  
+  # Payment mutations
+  processPayment(input: ProcessPaymentInput!): Payment!
+  validatePayment(paymentId: ID!): Payment!
+  
+  # Document mutations
+  uploadDocument(file: Upload!, isPublic: Boolean): Document!
+  deleteDocument(id: ID!): Boolean!
+  
+  # Webhook mutations
+  createWebhook(input: CreateWebhookInput!): Webhook!
+  updateWebhook(id: ID!, input: UpdateWebhookInput!): Webhook!
+  deleteWebhook(id: ID!): Boolean!
+  
+  # Report mutations
+  generateReport(input: GenerateReportInput!): Report!
+  deleteReport(id: ID!): Boolean!
+  
+  # Admin mutations
+  updateUserRole(userId: ID!, role: UserRole!): User!
+  updateUserStatus(userId: ID!, status: UserStatus!): User!
+}
+
+# Subscription type
+type Subscription {
+  # User subscriptions
+  userUpdated(userId: ID!): User!
+  
+  # Bill subscriptions
+  billCreated(userId: ID!): Bill!
+  billUpdated(userId: ID!): Bill!
+  
+  # Payment subscriptions
+  paymentProcessed(userId: ID!): Payment!
+  paymentUpdated(userId: ID!): Payment!
+  
+  # Notification subscriptions
+  notificationReceived(userId: ID!): Notification!
+  
+  # System subscriptions
+  systemEvent(event: String!): SystemEvent!
+}
+
+# Supporting types
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type UserEdge {
+  node: User!
+  cursor: String!
+}
+
+type TwoFactorSetup {
+  secret: String!
+  qrCode: String!
+  backupCodes: [String!]!
+}
+
+type UpdateBillInput {
+  amount: Decimal
+  dueDate: DateTime
+  status: BillStatus
+  lateFee: Decimal
+  discount: Decimal
+}
+
+type UpdateWebhookInput {
+  url: String
+  events: [String!]
+  secret: String
+  isActive: Boolean
+}
+
+type GenerateReportInput {
+  name: String!
+  type: String!
+  description: String
+  parameters: JSON
+}
+
+type DashboardData {
+  totalUsers: Int!
+  totalBills: Int!
+  totalPayments: Int!
+  totalRevenue: Decimal!
+  recentPayments: [Payment!]!
+  overdueBills: [Bill!]!
+  userGrowth: [GrowthData!]!
+  paymentTrends: [TrendData!]!
+}
+
+type GrowthData {
+  date: DateTime!
+  count: Int!
+}
+
+type TrendData {
+  date: DateTime!
+  amount: Decimal!
+}
+
+type Notification {
+  id: ID!
+  userId: String!
+  type: String!
+  title: String!
+  message: String!
+  data: JSON
+  isRead: Boolean!
+  createdAt: DateTime!
+}
+
+type SystemEvent {
+  id: ID!
+  type: String!
+  data: JSON!
+  timestamp: DateTime!
+}
+
+# Custom scalar for file uploads
+scalar Upload
+
+# Custom scalar for JSON data
+scalar JSON

@@ -1,0 +1,508 @@
+# NEPA GraphQL API - Example Mutations
+# This file contains common mutation examples for the NEPA platform
+
+# ===========================================
+# AUTHENTICATION MUTATIONS
+# ===========================================
+
+# Register a new user
+mutation Register($input: CreateUserInput!) {
+  register(input: $input) {
+    token
+    refreshToken
+    user {
+      id
+      email
+      username
+      name
+      role
+      status
+      createdAt
+    }
+  }
+}
+
+# Example variables for Register mutation:
+# {
+#   "input": {
+#     "email": "user@example.com",
+#     "username": "johndoe",
+#     "name": "John Doe",
+#     "password": "securePassword123",
+#     "role": "USER"
+#   }
+# }
+
+# Login with email and password
+mutation Login($email: String!, $password: String!) {
+  login(email: $email, password: $password) {
+    token
+    refreshToken
+    user {
+      id
+      email
+      name
+      role
+      lastLoginAt
+    }
+  }
+}
+
+# Login with wallet address
+mutation LoginWithWallet($walletAddress: String!) {
+  loginWithWallet(walletAddress: $walletAddress) {
+    token
+    refreshToken
+    user {
+      id
+      email
+      walletAddress
+      role
+    }
+  }
+}
+
+# Refresh access token
+mutation RefreshToken($refreshToken: String!) {
+  refreshToken(refreshToken: $refreshToken) {
+    token
+    refreshToken
+    user {
+      id
+      email
+      role
+    }
+  }
+}
+
+# Logout
+mutation Logout {
+  logout
+}
+
+# ===========================================
+# USER PROFILE MUTATIONS
+# ===========================================
+
+# Update user profile
+mutation UpdateProfile($input: UpdateUserProfileInput!) {
+  updateProfile(input: $input) {
+    id
+    email
+    username
+    name
+    phoneNumber
+    avatar
+    profiles {
+      bio
+      location
+      website
+      timezone
+      language
+      currency
+      theme
+      preferences
+    }
+    updatedAt
+  }
+}
+
+# Example variables for UpdateProfile mutation:
+# {
+#   "input": {
+#     "name": "John Smith",
+#     "bio": "Software developer passionate about clean energy",
+#     "location": "San Francisco, CA",
+#     "website": "https://johnsmith.dev",
+#     "timezone": "America/Los_Angeles",
+#     "language": "en",
+#     "currency": "USD",
+#     "theme": "dark"
+#   }
+# }
+
+# Change password
+mutation ChangePassword($currentPassword: String!, $newPassword: String!) {
+  changePassword(currentPassword: $currentPassword, newPassword: $newPassword)
+}
+
+# Enable two-factor authentication
+mutation EnableTwoFactor($method: TwoFactorMethod!) {
+  enableTwoFactor(method: $method) {
+    secret
+    qrCode
+    backupCodes
+  }
+}
+
+# Verify two-factor authentication
+mutation VerifyTwoFactor($token: String!) {
+  verifyTwoFactor(token: $token)
+}
+
+# ===========================================
+# BILL MUTATIONS
+# ===========================================
+
+# Create a new bill
+mutation CreateBill($input: CreateBillInput!) {
+  createBill(input: $input) {
+    id
+    amount
+    lateFee
+    discount
+    dueDate
+    status
+    createdAt
+    user {
+      id
+      email
+      name
+    }
+    utility {
+      id
+      name
+      type
+      provider
+    }
+  }
+}
+
+# Example variables for CreateBill mutation:
+# {
+#   "input": {
+#     "amount": 125.50,
+#     "utilityId": "utility-id-here",
+#     "dueDate": "2024-12-31T23:59:59Z",
+#     "lateFee": 15.00,
+#     "discount": 5.00
+#   }
+# }
+
+# Update a bill
+mutation UpdateBill($id: ID!, $input: UpdateBillInput!) {
+  updateBill(id: $id, input: $input) {
+    id
+    amount
+    lateFee
+    discount
+    dueDate
+    status
+    updatedAt
+    user {
+      id
+      email
+      name
+    }
+    utility {
+      id
+      name
+      type
+      provider
+    }
+  }
+}
+
+# Example variables for UpdateBill mutation:
+# {
+#   "id": "bill-id-here",
+#   "input": {
+#     "amount": 130.00,
+#     "dueDate": "2024-12-25T23:59:59Z",
+#     "status": "PAID"
+#   }
+# }
+
+# Delete a bill
+mutation DeleteBill($id: ID!) {
+  deleteBill(id: $id)
+}
+
+# ===========================================
+# PAYMENT MUTATIONS
+# ===========================================
+
+# Process a payment
+mutation ProcessPayment($input: ProcessPaymentInput!) {
+  processPayment(input: $input) {
+    id
+    amount
+    method
+    status
+    transactionId
+    createdAt
+    bill {
+      id
+      amount
+      status
+      dueDate
+      utility {
+        name
+        type
+      }
+    }
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Example variables for ProcessPayment mutation:
+# {
+#   "input": {
+#     "billId": "bill-id-here",
+#     "amount": 125.50,
+#     "method": "STELLAR",
+#     "couponCode": "SAVE10"
+#   }
+# }
+
+# Validate a payment
+mutation ValidatePayment($paymentId: ID!) {
+  validatePayment(paymentId: $paymentId) {
+    id
+    amount
+    method
+    status
+    transactionId
+    createdAt
+    bill {
+      id
+      amount
+      status
+    }
+  }
+}
+
+# ===========================================
+# DOCUMENT MUTATIONS
+# ===========================================
+
+# Upload a document
+mutation UploadDocument($file: Upload!, $isPublic: Boolean) {
+  uploadDocument(file: $file, isPublic: $isPublic) {
+    id
+    filename
+    originalName
+    mimeType
+    size
+    isPublic
+    createdAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Delete a document
+mutation DeleteDocument($id: ID!) {
+  deleteDocument(id: $id)
+}
+
+# ===========================================
+# WEBHOOK MUTATIONS
+# ===========================================
+
+# Create a webhook
+mutation CreateWebhook($input: CreateWebhookInput!) {
+  createWebhook(input: $input) {
+    id
+    url
+    events
+    isActive
+    retryCount
+    createdAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Example variables for CreateWebhook mutation:
+# {
+#   "input": {
+#     "url": "https://your-app.com/webhooks/nepa",
+#     "events": ["payment.success", "bill.created", "user.updated"],
+#     "secret": "your-webhook-secret"
+#   }
+# }
+
+# Update a webhook
+mutation UpdateWebhook($id: ID!, $input: UpdateWebhookInput!) {
+  updateWebhook(id: $id, input: $input) {
+    id
+    url
+    events
+    isActive
+    retryCount
+    lastTriggered
+    updatedAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Example variables for UpdateWebhook mutation:
+# {
+#   "id": "webhook-id-here",
+#   "input": {
+#     "url": "https://updated-app.com/webhooks/nepa",
+#     "events": ["payment.success", "bill.created"],
+#     "isActive": false
+#   }
+# }
+
+# Delete a webhook
+mutation DeleteWebhook($id: ID!) {
+  deleteWebhook(id: $id)
+}
+
+# ===========================================
+# REPORT MUTATIONS
+# ===========================================
+
+# Generate a report
+mutation GenerateReport($input: GenerateReportInput!) {
+  generateReport(input: $input) {
+    id
+    name
+    type
+    description
+    parameters
+    status
+    generatedAt
+    createdAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Example variables for GenerateReport mutation:
+# {
+#   "input": {
+#     "name": "Monthly Payment Report",
+#     "type": "PAYMENT_SUMMARY",
+#     "description": "Summary of all payments in the last month",
+#     "parameters": {
+#       "startDate": "2024-11-01",
+#       "endDate": "2024-11-30",
+#       "includeFailed": false
+#     }
+#   }
+# }
+
+# Delete a report
+mutation DeleteReport($id: ID!) {
+  deleteReport(id: $id)
+}
+
+# ===========================================
+# ADMIN MUTATIONS
+# ===========================================
+
+# Update user role (Admin only)
+mutation UpdateUserRole($userId: ID!, $role: UserRole!) {
+  updateUserRole(userId: $userId, role: $role) {
+    id
+    email
+    name
+    role
+    status
+    updatedAt
+  }
+}
+
+# Example variables for UpdateUserRole mutation:
+# {
+#   "userId": "user-id-here",
+#   "role": "ADMIN"
+# }
+
+# Update user status (Admin only)
+mutation UpdateUserStatus($userId: ID!, $status: UserStatus!) {
+  updateUserStatus(userId: $userId, status: $status) {
+    id
+    email
+    name
+    role
+    status
+    updatedAt
+  }
+}
+
+# Example variables for UpdateUserStatus mutation:
+# {
+#   "userId": "user-id-here",
+#   "status": "SUSPENDED"
+# }
+
+# ===========================================
+# BATCH OPERATIONS EXAMPLES
+# ===========================================
+
+# Create multiple bills (multiple mutations)
+mutation CreateMultipleBills {
+  bill1: createBill(input: {
+    amount: 100.00
+    utilityId: "electricity-utility-id"
+    dueDate: "2024-12-15T23:59:59Z"
+  }) {
+    id
+    amount
+    status
+  }
+  
+  bill2: createBill(input: {
+    amount: 50.00
+    utilityId: "water-utility-id"
+    dueDate: "2024-12-20T23:59:59Z"
+  }) {
+    id
+    amount
+    status
+  }
+  
+  bill3: createBill(input: {
+    amount: 75.00
+    utilityId: "gas-utility-id"
+    dueDate: "2024-12-25T23:59:59Z"
+  }) {
+    id
+    amount
+    status
+  }
+}
+
+# Process payment and update bill status in one transaction
+mutation ProcessPaymentAndUpdateBill {
+  payment: processPayment(input: {
+    billId: "bill-id-here"
+    amount: 125.50
+    method: "STELLAR"
+  }) {
+    id
+    amount
+    status
+    transactionId
+  }
+  
+  bill: updateBill(id: "bill-id-here", input: {
+    status: "PAID"
+  }) {
+    id
+    status
+    updatedAt
+  }
+}

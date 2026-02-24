@@ -1,0 +1,563 @@
+# NEPA GraphQL API - Example Queries
+# This file contains common query examples for the NEPA platform
+
+# ===========================================
+# USER QUERIES
+# ===========================================
+
+# Get current user profile
+query GetCurrentUser {
+  me {
+    id
+    email
+    username
+    name
+    phoneNumber
+    avatar
+    role
+    status
+    walletAddress
+    isEmailVerified
+    isPhoneVerified
+    twoFactorEnabled
+    twoFactorMethod
+    lastLoginAt
+    createdAt
+    updatedAt
+  }
+}
+
+# Get user by ID (Admin only)
+query GetUser($id: ID!) {
+  user(id: $id) {
+    id
+    email
+    username
+    name
+    role
+    status
+    createdAt
+    profiles {
+      bio
+      location
+      website
+      timezone
+      language
+      currency
+      theme
+    }
+    notificationPreference {
+      email
+      sms
+      push
+      inApp
+    }
+  }
+}
+
+# Get all users with pagination and filtering (Admin only)
+query GetAllUsers($first: Int, $after: String, $where: UserWhereInput) {
+  users(first: $first, after: $after, where: $where) {
+    edges {
+      node {
+        id
+        email
+        username
+        name
+        role
+        status
+        isEmailVerified
+        isPhoneVerified
+        createdAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    totalCount
+  }
+}
+
+# ===========================================
+# BILL QUERIES
+# ===========================================
+
+# Get bill by ID
+query GetBill($id: ID!) {
+  bill(id: $id) {
+    id
+    amount
+    lateFee
+    discount
+    dueDate
+    status
+    createdAt
+    updatedAt
+    user {
+      id
+      email
+      name
+    }
+    utility {
+      id
+      name
+      type
+      provider
+    }
+    payments {
+      edges {
+        node {
+          id
+          amount
+          method
+          status
+          transactionId
+          createdAt
+        }
+      }
+    }
+  }
+}
+
+# Get current user's bills with filtering
+query GetMyBills($first: Int, $after: String, $where: BillWhereInput) {
+  myBills(first: $first, after: $after, where: $where) {
+    edges {
+      node {
+        id
+        amount
+        lateFee
+        discount
+        dueDate
+        status
+        createdAt
+        utility {
+          id
+          name
+          type
+          provider
+        }
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    totalCount
+  }
+}
+
+# Get all bills with filtering (Admin only)
+query GetAllBills($first: Int, $after: String, $where: BillWhereInput) {
+  bills(first: $first, after: $after, where: $where) {
+    edges {
+      node {
+        id
+        amount
+        dueDate
+        status
+        createdAt
+        user {
+          id
+          email
+          name
+        }
+        utility {
+          id
+          name
+          type
+        }
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    totalCount
+  }
+}
+
+# ===========================================
+# PAYMENT QUERIES
+# ===========================================
+
+# Get payment by ID
+query GetPayment($id: ID!) {
+  payment(id: $id) {
+    id
+    amount
+    method
+    status
+    transactionId
+    createdAt
+    bill {
+      id
+      amount
+      dueDate
+      status
+      utility {
+        name
+        type
+      }
+    }
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Get current user's payments with filtering
+query GetMyPayments($first: Int, $after: String, $where: PaymentWhereInput) {
+  myPayments(first: $first, after: $after, where: $where) {
+    edges {
+      node {
+        id
+        amount
+        method
+        status
+        transactionId
+        createdAt
+        bill {
+          id
+          amount
+          dueDate
+          status
+          utility {
+            name
+            type
+          }
+        }
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    totalCount
+  }
+}
+
+# ===========================================
+# UTILITY QUERIES
+# ===========================================
+
+# Get utility by ID
+query GetUtility($id: ID!) {
+  utility(id: $id) {
+    id
+    name
+    type
+    provider
+    createdAt
+    updatedAt
+    bills(first: 5) {
+      edges {
+        node {
+          id
+          amount
+          dueDate
+          status
+        }
+      }
+    }
+  }
+}
+
+# Get all utilities
+query GetAllUtilities {
+  utilities {
+    id
+    name
+    type
+    provider
+    createdAt
+  }
+}
+
+# ===========================================
+# DOCUMENT QUERIES
+# ===========================================
+
+# Get document by ID
+query GetDocument($id: ID!) {
+  document(id: $id) {
+    id
+    filename
+    originalName
+    mimeType
+    size
+    isPublic
+    createdAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Get current user's documents
+query GetMyDocuments($first: Int, $after: String) {
+  myDocuments(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        filename
+        originalName
+        mimeType
+        size
+        isPublic
+        createdAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    totalCount
+  }
+}
+
+# ===========================================
+# WEBHOOK QUERIES
+# ===========================================
+
+# Get webhook by ID
+query GetWebhook($id: ID!) {
+  webhook(id: $id) {
+    id
+    url
+    events
+    isActive
+    retryCount
+    lastTriggered
+    createdAt
+    updatedAt
+    user {
+      id
+      email
+      name
+    }
+  }
+}
+
+# Get current user's webhooks
+query GetMyWebhooks($first: Int, $after: String) {
+  myWebhooks(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        url
+        events
+        isActive
+        retryCount
+        lastTriggered
+        createdAt
+      }
+      cursor
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    totalCount
+  }
+}
+
+# ===========================================
+# ANALYTICS QUERIES (Admin only)
+# ===========================================
+
+# Get dashboard analytics
+query GetDashboard {
+  dashboard {
+    totalUsers
+    totalBills
+    totalPayments
+    totalRevenue
+    recentPayments {
+      id
+      amount
+      status
+      createdAt
+      user {
+        email
+        name
+      }
+      bill {
+        id
+        amount
+      }
+    }
+    overdueBills {
+      id
+      amount
+      dueDate
+      user {
+        email
+        name
+      }
+      utility {
+        name
+        type
+      }
+    }
+    userGrowth {
+      date
+      count
+    }
+    paymentTrends {
+      date
+      amount
+    }
+  }
+}
+
+# ===========================================
+# ADVANCED EXAMPLES
+# ===========================================
+
+# Complex query: Get user with nested relationships
+query GetUserWithFullDetails($id: ID!) {
+  user(id: $id) {
+    id
+    email
+    name
+    role
+    status
+    profiles {
+      bio
+      location
+      website
+      timezone
+      language
+      currency
+      theme
+      preferences
+    }
+    bills(first: 10, where: { status: PENDING }) {
+      edges {
+        node {
+          id
+          amount
+          dueDate
+          status
+          utility {
+            name
+            type
+            provider
+          }
+          payments {
+            edges {
+              node {
+                id
+                amount
+                status
+                method
+                createdAt
+              }
+            }
+          }
+        }
+      }
+    }
+    payments(first: 10, where: { status: SUCCESS }) {
+      edges {
+        node {
+          id
+          amount
+          method
+          status
+          transactionId
+          createdAt
+          bill {
+            id
+            amount
+            status
+            utility {
+              name
+              type
+            }
+          }
+        }
+      }
+    }
+    documents(first: 5) {
+      edges {
+        node {
+          id
+          filename
+          originalName
+          mimeType
+          size
+          isPublic
+          createdAt
+        }
+      }
+    }
+    webhooks(first: 5) {
+      edges {
+        node {
+          id
+          url
+          events
+          isActive
+          retryCount
+          lastTriggered
+          createdAt
+        }
+      }
+    }
+  }
+}
+
+# Filtered query: Get overdue bills
+query GetOverdueBills {
+  myBills(
+    where: { 
+      status: PENDING,
+      dueDate: { lt: "2024-01-01T00:00:00Z" }
+    }
+    first: 20
+  ) {
+    edges {
+      node {
+        id
+        amount
+        lateFee
+        dueDate
+        status
+        utility {
+          name
+          type
+          provider
+        }
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    totalCount
+  }
+}
