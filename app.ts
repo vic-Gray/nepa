@@ -1,17 +1,17 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
-import { apiLimiter, ddosDetector, checkBlockedIP, ipRestriction, progressiveLimiter, authLimiter } from './middleware/rateLimiter';
+import { apiLimiter, ddosDetector, checkBlockedIP, ipRestriction, progressiveLimiter } from './middleware/rateLimiter';
 import { configureSecurity } from './middleware/security';
 import { apiKeyAuth } from './middleware/auth';
-import { authenticate, authorize, optionalAuth } from './middleware/authentication';
 import { loggingMiddleware, setupGlobalErrorHandling, errorTracker } from './middleware/logger';
 import { errorTracker as abuseDetector } from './middleware/abuseDetection';
-import { swaggerSpec } from './swagger';
-import { upload } from './middleware/upload';
-import { uploadDocument } from './controllers/DocumentController';
-import { getDashboardData, generateReport, exportData } from './controllers/AnalyticsController';
-import { applyPaymentSecurity, processPayment, getPaymentHistory, validatePayment } from './controllers/PaymentController';
-
+import { apiVersionMiddleware, setApiVersion, versionUsageAnalyticsMiddleware } from './middleware/apiVersion';
+import { createV1Router, createV2Router } from './routes/apiVersions';
+import { apiVersioningConfig } from './config/api-versioning';
+import { swaggerSpec, getVersionedSwaggerSpec } from './swagger';
+import { performanceMonitor } from './services/performanceMonitoring';
+import analyticsService from './services/analytics';
+import { logger } from './services/logger';
 
 const app = express();
 
@@ -30,10 +30,6 @@ if (process.env.SENTRY_DSN) {
     release: process.env.npm_package_version
   });
 }
-
-// Initialize controllers
-const authController = new AuthenticationController();
-const userController = new UserController();
 
 // 1. Comprehensive logging middleware (should be first)
 app.use(...loggingMiddleware);
@@ -58,8 +54,10 @@ app.use('/api', apiLimiter);
 // 7. Error tracking for abuse detection
 app.use(abuseDetector);
 
-// 8. API Documentation
+// 8. API Documentation (default + versioned)
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api-docs/v1', swaggerUi.serve, swaggerUi.setup(getVersionedSwaggerSpec('v1')));
+app.use('/api-docs/v2', swaggerUi.serve, swaggerUi.setup(getVersionedSwaggerSpec('v2')));
 
 // 9. Enhanced Health Check
 app.get('/health', (req, res) => {
@@ -83,11 +81,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 10. Monitoring endpoints
+// 10. Monitoring endpoints (unversioned)
 app.get('/api/monitoring/metrics', apiKeyAuth, (req, res) => {
   const analytics = analyticsService.getAnalyticsData();
   const performance = performanceMonitor.getHealthStatus();
-  
+
   res.json({
     analytics,
     performance,
@@ -96,113 +94,20 @@ app.get('/api/monitoring/metrics', apiKeyAuth, (req, res) => {
   });
 });
 
-// 11. Protected API Routes
-app.use('/api', apiKeyAuth);
-
-// Authentication endpoints with stricter rate limiting
-app.post('/api/auth/register', authLimiter, authController.register.bind(authController));
-app.post('/api/auth/login', authLimiter, authController.login.bind(authController));
-app.post('/api/auth/wallet', authLimiter, authController.loginWithWallet.bind(authController));
-app.post('/api/auth/refresh', authLimiter, authController.refreshToken.bind(authController));
-app.post('/api/auth/logout', authenticate, authController.logout.bind(authController));
-
-// User profile endpoints
-app.get('/api/user/profile', authenticate, authController.getProfile.bind(authController));
-app.put('/api/user/profile', authenticate, userController.updateProfile.bind(userController));
-app.get('/api/user/preferences', authenticate, userController.getPreferences.bind(userController));
-app.put('/api/user/preferences', authenticate, userController.updatePreferences.bind(userController));
-app.post('/api/user/change-password', authenticate, userController.changePassword.bind(userController));
-
-// Two-factor authentication endpoints
-app.post('/api/user/2fa/enable', authenticate, authController.enableTwoFactor.bind(authController));
-app.post('/api/user/2fa/verify', authenticate, authController.verifyTwoFactor.bind(authController));
-
-// User sessions
-app.get('/api/user/sessions', authenticate, userController.getUserSessions.bind(userController));
-app.delete('/api/user/sessions/:sessionId', authenticate, userController.revokeSession.bind(userController));
-
-// Admin user management endpoints
-app.get('/api/admin/users', authenticate, authorize(UserRole.ADMIN), userController.getAllUsers.bind(userController));
-app.get('/api/admin/users/:id', authenticate, authorize(UserRole.ADMIN), userController.getUserById.bind(userController));
-app.put('/api/admin/users/:id/role', authenticate, authorize(UserRole.ADMIN), userController.updateUserRole.bind(userController));
-app.delete('/api/admin/users/:id', authenticate, authorize(UserRole.ADMIN), userController.deleteUser.bind(userController));
-
-// Payment endpoints with enhanced security
-app.post('/api/payment/process', ...applyPaymentSecurity, processPayment);
-app.get('/api/payment/history', apiKeyAuth, getPaymentHistory);
-app.post('/api/payment/validate', ...applyPaymentSecurity, validatePayment);
-
-// Example protected route
-/**
- * @openapi
- * /api/test:
- *   get:
- *     summary: Test protected route
- *     security:
- *       - ApiKeyAuth: []
- *     responses:
- *       200:
- *         description: Success
- */
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'Authenticated access successful' });
+// 11. API version discovery (no auth required for discovery)
+app.get('/api/versions', (_req, res) => {
+  res.json({
+    defaultVersion: apiVersioningConfig.defaultVersion,
+    latestVersion: apiVersioningConfig.latestVersion,
+    supportedVersions: apiVersioningConfig.supportedVersions,
+    lifecycle: apiVersioningConfig.lifecycle,
+  });
 });
 
-// Document Upload Route
-/**
- * @openapi
- * /api/documents/upload:
- *   post:
- *     summary: Upload a document
- *     security:
- *       - ApiKeyAuth: []
- *     requestBody:
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               file:
- *                 type: string
- *                 format: binary
- *               userId:
- *                 type: string
- *     responses:
- *       201:
- *         description: Document uploaded successfully
- */
-app.post('/api/documents/upload', apiKeyAuth, upload.single('file'), uploadDocument);
-
-// Analytics Routes
-/**
- * @openapi
- * /api/analytics/dashboard:
- *   get:
- *     summary: Get analytics dashboard data
- *     security:
- *       - ApiKeyAuth: []
- *     responses:
- *       200:
- *         description: Dashboard data retrieved
- */
-app.get('/api/analytics/dashboard', apiKeyAuth, getDashboardData);
-
-/**
- * @openapi
- * /api/analytics/reports:
- *   post:
- *     summary: Generate and save a custom report
- *     security:
- *       - ApiKeyAuth: []
- *     responses:
- *       201:
- *         description: Report created
- */
-app.post('/api/analytics/reports', apiKeyAuth, generateReport);
-
-// Export Route
-app.get('/api/analytics/export', apiKeyAuth, exportData);
-
-
+// 12. Versioned API routes (version from path or header X-API-Version / Accept / query)
+app.use('/api', apiVersionMiddleware, versionUsageAnalyticsMiddleware);
+app.use('/api/v1', setApiVersion('v1'), createV1Router());
+app.use('/api/v2', setApiVersion('v2'), createV2Router());
+app.use('/api', setApiVersion('v2'), createV2Router()); // default unversioned /api/* -> v2
 
 export default app;

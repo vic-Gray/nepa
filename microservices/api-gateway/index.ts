@@ -18,6 +18,15 @@ const services = {
   webhook: process.env.WEBHOOK_SERVICE_URL || 'http://localhost:3008',
 };
 
+/** Forward API version header to backend for versioned routing */
+function forwardApiVersion(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const version = req.headers['x-api-version'] || req.query.version;
+  if (version) {
+    req.headers['x-api-version'] = Array.isArray(version) ? version[0] : (version as string);
+  }
+  next();
+}
+
 app.get('/health', async (req, res) => {
   const health = await Promise.all(
     Object.entries(services).map(async ([name, url]) => {
@@ -32,6 +41,7 @@ app.get('/health', async (req, res) => {
   res.json({ gateway: 'UP', services: health });
 });
 
+app.use('/api', forwardApiVersion);
 app.use('/api/users', async (req, res, next) => {
   try {
     const response = await axios({ method: req.method, url: `${services.user}${req.path}`, data: req.body });
