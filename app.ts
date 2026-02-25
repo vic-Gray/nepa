@@ -17,7 +17,36 @@ import { auditCleanupService } from './services/AuditCleanupService';
 import { registerAuditHandlers } from './databases/event-patterns/handlers/auditHandlers';
 import { EventBus } from './databases/event-patterns/EventBus';
 
+// Mock services for now - replace with actual implementations
+const performanceMonitor = {
+  getHealthStatus: () => ({ status: 'healthy' }),
+  getMemoryUsage: () => ({ heapUsed: 0, heapTotal: 0, external: 0 }),
+  getRequestMetrics: (limit: number) => [],
+  getCustomMetrics: (limit: number) => []
+};
+
+const analyticsService = {
+  getAnalyticsData: () => ({ userEvents: [], activeUsers: 0 })
+};
+
 const app = express();
+
+// Initialize cache system on startup
+initializeCacheSystem().then(result => {
+  if (result.success) {
+    logger.info('Cache system initialized successfully', {
+      initializationTime: result.metrics.initializationTime,
+      services: result.services
+    });
+  } else {
+    logger.error('Cache system initialization failed', {
+      errors: result.errors,
+      warnings: result.warnings
+    });
+  }
+}).catch(error => {
+  logger.error('Cache system initialization error:', error);
+});
 
 // Initialize logging and monitoring
 logger.info('Application starting up', { 
@@ -75,7 +104,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api-docs/v1', swaggerUi.serve, swaggerUi.setup(getVersionedSwaggerSpec('v1')));
 app.use('/api-docs/v2', swaggerUi.serve, swaggerUi.setup(getVersionedSwaggerSpec('v2')));
 
-// 10. Enhanced Health Check
+// 11. Enhanced Health Check
 app.get('/health', (req, res) => {
   const healthStatus = performanceMonitor.getHealthStatus();
   const memoryUsage = performanceMonitor.getMemoryUsage();
@@ -193,5 +222,12 @@ const initializeAuditSystem = async () => {
 
 // Initialize audit system on startup
 initializeAuditSystem();
+
+export default app;
+// Cache Management Routes (Admin only)
+app.use('/api/cache', cacheRoutes);
+
+// Add cache middleware to existing routes for better performance
+// Note: These would be added to existing route definitions in a real implementation
 
 export default app;
