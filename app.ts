@@ -5,16 +5,17 @@ import { configureSecurity } from './middleware/security';
 import { apiKeyAuth } from './middleware/auth';
 import { loggingMiddleware, setupGlobalErrorHandling, errorTracker } from './middleware/logger';
 import { errorTracker as abuseDetector } from './middleware/abuseDetection';
+import { captureAuditContext, auditRateLimit, auditSecurityAlert } from './middleware/auditMiddleware';
 import { swaggerSpec } from './swagger';
 import { upload } from './middleware/upload';
 import { uploadDocument } from './controllers/DocumentController';
 import { getDashboardData, generateReport, exportData } from './controllers/AnalyticsController';
 import { applyPaymentSecurity, processPayment, getPaymentHistory, validatePayment } from './controllers/PaymentController';
 import { setupRateLimitRoutes } from './routes/rateLimitRoutes';
-import { initializeCacheSystem } from './services/cache/CacheInitializer';
-import { cacheHealthMiddleware, apiCacheMiddleware, cacheInvalidationMiddleware } from './middleware/cacheMiddleware';
-import cacheRoutes from './routes/cacheRoutes';
-import { logger } from './services/logger';
+import auditRoutes from './routes/auditRoutes';
+import { auditCleanupService } from './services/AuditCleanupService';
+import { registerAuditHandlers } from './databases/event-patterns/handlers/auditHandlers';
+import { EventBus } from './databases/event-patterns/EventBus';
 
 // Mock services for now - replace with actual implementations
 const performanceMonitor = {
@@ -80,19 +81,25 @@ app.use(express.json({ limit: '10kb' })); // Limit body size for security
 // 5. Progressive Rate Limiting
 app.use('/api', progressiveLimiter);
 
-// 6. Advanced Rate Limiting (replaces basic rate limiting)
+// 6. Audit Context Capture (before rate limiting to capture all requests)
+app.use('/api', captureAuditContext);
+
+// 7. Advanced Rate Limiting (replaces basic rate limiting)
 app.use('/api', advancedRateLimiter);
 
-// 7. Error tracking for abuse detection
+// 8. Audit rate limit breaches
+app.use('/api', auditRateLimit);
+
+// 9. Error tracking for abuse detection
 app.use(abuseDetector);
 
-// 8. Setup rate limiting routes
+// 10. Setup rate limiting routes
 setupRateLimitRoutes(app);
 
-// 9. Cache health check middleware
-app.use(cacheHealthMiddleware());
+// 11. Audit Routes
+app.use('/api/audit', auditRoutes);
 
-// 10. API Documentation
+// 12. API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api-docs/v1', swaggerUi.serve, swaggerUi.setup(getVersionedSwaggerSpec('v1')));
 app.use('/api-docs/v2', swaggerUi.serve, swaggerUi.setup(getVersionedSwaggerSpec('v2')));
@@ -142,11 +149,79 @@ app.get('/api/versions', (_req, res) => {
   });
 });
 
-// 12. Versioned API routes (version from path or header X-API-Version / Accept / query)
-app.use('/api', apiVersionMiddleware, versionUsageAnalyticsMiddleware);
-app.use('/api/v1', setApiVersion('v1'), createV1Router());
-app.use('/api/v2', setApiVersion('v2'), createV2Router());
-app.use('/api', setApiVersion('v2'), createV2Router()); // default unversioned /api/* -> v2
+// Document Upload Route
+/**
+ * @openapi
+ * /api/documents/upload:
+ *   post:
+ *     summary: Upload a document
+ *     security:
+ *       - ApiKeyAuth: []
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               userId:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Document uploaded successfully
+ */
+app.post('/api/documents/upload', apiKeyAuth, upload.single('file'), uploadDocument);
+
+// Analytics Routes
+/**
+ * @openapi
+ * /api/analytics/dashboard:
+ *   get:
+ *     summary: Get analytics dashboard data
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard data retrieved
+ */
+app.get('/api/analytics/dashboard', apiKeyAuth, getDashboardData);
+
+/**
+ * @openapi
+ * /api/analytics/reports:
+ *   post:
+ *     summary: Generate and save a custom report
+ *     security:
+ *       - ApiKeyAuth: []
+ *     responses:
+ *       201:
+ *         description: Report created
+ */
+app.post('/api/analytics/reports', apiKeyAuth, generateReport);
+
+// Export Route
+app.get('/api/analytics/export', apiKeyAuth, exportData);
+
+// Initialize audit system
+const initializeAuditSystem = async () => {
+  try {
+    // Register audit event handlers
+    const eventBus = EventBus.getInstance();
+    registerAuditHandlers(eventBus);
+    
+    // Start audit cleanup service
+    auditCleanupService.start();
+    
+    logger.info('Audit system initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize audit system:', error);
+  }
+};
+
+// Initialize audit system on startup
+initializeAuditSystem();
 
 export default app;
 // Cache Management Routes (Admin only)

@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # Audit Database
+  audit-db:
+    image: postgres:15-alpine
+    container_name: nepa-audit-db
+    environment:
+      POSTGRES_DB: nepa_audit
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5440:5432"
+    volumes:
+      - audit_db_data:/var/lib/postgresql/data
+      - ./init-scripts/audit-db-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - nepa-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nepa_audit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Audit Log Processor (Optional - for high-volume environments)
+  audit-processor:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.audit-processor
+    container_name: nepa-audit-processor
+    environment:
+      - NODE_ENV=production
+      - AUDIT_DATABASE_URL=postgresql://postgres:password@audit-db:5432/nepa_audit
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+    depends_on:
+      audit-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nepa-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Redis for audit event queuing
+  redis:
+    image: redis:7-alpine
+    container_name: nepa-audit-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - nepa-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+volumes:
+  audit_db_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  nepa-network:
+    external: true
