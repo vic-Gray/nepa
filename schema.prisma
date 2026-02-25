@@ -19,6 +19,25 @@ enum PaymentStatus {
   PENDING
 }
 
+enum BlockchainNetwork {
+  STELLAR
+  ETHEREUM
+  POLYGON
+  BSC
+  ARBITRUM
+  OPTIMISM
+}
+
+enum CrossChainStatus {
+  INITIATED
+  SOURCE_CONFIRMED
+  BRIDGE_PROCESSING
+  DESTINATION_PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
 enum UserRole {
   USER
   ADMIN
@@ -49,7 +68,7 @@ model User {
   avatar            String?
   role              UserRole         @default(USER)
   status            UserStatus       @default(PENDING_VERIFICATION)
-  walletAddress     String?          @unique // Stellar wallet address
+  walletAddress     String?          @unique // Stellar wallet address (legacy)
   isEmailVerified   Boolean          @default(false)
   isPhoneVerified   Boolean          @default(false)
   twoFactorEnabled  Boolean          @default(false)
@@ -72,6 +91,7 @@ model User {
   reports                Report[]
   webhooks               Webhook[]
   auditLogs              AuditLog[]
+  blockchainWallets      BlockchainWallet[]
 
   @@index([email])
   @@index([username])
@@ -126,21 +146,34 @@ model Coupon {
 }
 
 model Payment {
-  id            String        @id @default(uuid())
-  amount        Decimal       @db.Decimal(10, 2)
-  method        String
-  status        PaymentStatus @default(PENDING)
-  transactionId String?       @unique
-  billId        String
-  userId        String
-  createdAt     DateTime      @default(now())
+  id               String          @id @default(uuid())
+  amount           Decimal         @db.Decimal(10, 2)
+  method           String
+  status           PaymentStatus   @default(PENDING)
+  transactionId    String?         @unique
+  billId           String
+  userId           String
+  network          BlockchainNetwork @default(STELLAR)
+  transactionHash  String?         // Blockchain transaction hash
+  gasUsed          String?         // Gas used for EVM transactions
+  gasPrice         String?         // Gas price for EVM transactions
+  fee              Decimal?        @db.Decimal(10, 2) // Network fee
+  asset            String          @default("XLM") // Asset symbol (XLM, ETH, MATIC, etc.)
+  confirmations    Int?            // Number of confirmations
+  blockNumber      Int?            // Block number when confirmed
+  blockHash        String?         // Block hash when confirmed
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  bill          Bill          @relation(fields: [billId], references: [id])
-  user          User          @relation(fields: [userId], references: [id])
+  bill             Bill            @relation(fields: [billId], references: [id])
+  user             User            @relation(fields: [userId], references: [id])
 
   @@index([billId])
   @@index([userId])
   @@index([transactionId])
+  @@index([transactionHash])
+  @@index([network])
+  @@index([status])
 }
 
 model NotificationPreference {
@@ -352,4 +385,80 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+model CrossChainTransaction {
+  id                        String            @id @default(uuid())
+  fromNetwork              BlockchainNetwork
+  toNetwork                BlockchainNetwork
+  fromAddress              String
+  toAddress                String
+  amount                   String
+  asset                    String
+  status                   CrossChainStatus   @default(INITIATED)
+  sourceTransactionHash    String?            // Source blockchain transaction hash
+  destinationTransactionHash String?         // Destination blockchain transaction hash
+  bridgeContract           String?            // Bridge contract address
+  bridgeProvider           String?            // Name of bridge provider
+  bridgeFee                Decimal?           @db.Decimal(10, 2) // Bridge fee
+  slippageTolerance        Decimal?           @db.Decimal(5, 2) // Slippage tolerance percentage
+  estimatedCompletion      DateTime?          // Estimated completion time
+  sourceConfirmations      Int?               // Number of confirmations on source chain
+  destinationConfirmations Int?               // Number of confirmations on destination chain
+  errorMessage             String?            // Error message if failed
+  metadata                 Json?              // Additional bridge-specific data
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  @@index([fromNetwork])
+  @@index([toNetwork])
+  @@index([fromAddress])
+  @@index([toAddress])
+  @@index([status])
+  @@index([sourceTransactionHash])
+  @@index([destinationTransactionHash])
+  @@index([bridgeProvider])
+  @@index([createdAt])
+}
+
+model BlockchainWallet {
+  id            String            @id @default(uuid())
+  userId        String            @unique
+  network       BlockchainNetwork
+  address       String            @unique
+  publicKey     String?           // Public key for Stellar
+  encryptedData String?           // Encrypted private key or seed
+  walletType    String            // 'METAMASK', 'FREIGHTER', 'PRIVATE_KEY', etc.
+  isActive      Boolean           @default(true)
+  lastUsedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user          User              @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([network])
+  @@index([address])
+  @@index([walletType])
+  @@index([isActive])
+}
+
+model NetworkConfig {
+  id              String            @id @default(uuid())
+  network         BlockchainNetwork @unique
+  name            String            // Display name (e.g., "Ethereum Mainnet")
+  rpcUrl          String            // RPC endpoint URL
+  wsUrl           String?           // WebSocket URL for real-time updates
+  chainId         Int?              // Chain ID for EVM networks
+  blockExplorerUrl String?          // Block explorer URL
+  nativeCurrency  Json              // { name: "Ethereum", symbol: "ETH", decimals: 18 }
+  gasSettings     Json?             // Gas configuration
+  isActive        Boolean           @default(true)
+  environment     String            // 'mainnet', 'testnet', 'devnet'
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([network])
+  @@index([isActive])
+  @@index([environment])
 }
