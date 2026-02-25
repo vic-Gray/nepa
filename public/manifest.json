@@ -1,0 +1,165 @@
+{
+  "name": "NEPA Utility Payments",
+  "short_name": "NEPA",
+  "description": "Decentralized utility payment platform with multi-blockchain support and offline capabilities",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["finance", "utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Pay Bill",
+      "short_name": "Pay",
+      "description": "Quick bill payment",
+      "url": "/dashboard?action=pay",
+      "icons": [
+        {
+          "src": "/icons/shortcut-pay.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "View Bills",
+      "short_name": "Bills",
+      "description": "View your bills",
+      "url": "/bills",
+      "icons": [
+        {
+          "src": "/icons/shortcut-bills.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Payment History",
+      "short_name": "History",
+      "description": "View payment history",
+      "url": "/history",
+      "icons": [
+        {
+          "src": "/icons/shortcut-history.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard view with bill overview"
+    },
+    {
+      "src": "/screenshots/mobile-1.png",
+      "sizes": "375x667",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile payment interface"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "focus-existing"]
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+nepa",
+      "url": "/handle-protocol?uri=%s"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/upload-bill",
+      "accept": {
+        "application/pdf": [".pdf"],
+        "image/jpeg": [".jpg", ".jpeg"],
+        "image/png": [".png"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "bill_title",
+      "text": "bill_description",
+      "url": "bill_url",
+      "files": [
+        {
+          "name": "bill_document",
+          "accept": ["application/pdf", "image/*"]
+        }
+      ]
+    }
+  },
+  "handle_links": "preferred",
+  "capture_links": "existing-client-navigate",
+  "scope_extensions": [
+    {
+      "origin": "https://api.nepa.com",
+      "install_origins": ["https://nepa.com"]
+    }
+  ]
+}
