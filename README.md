@@ -164,6 +164,7 @@ const result = await PaymentSaga.executePayment({
 - [Migration Guide](./databases/migration-guide.md)
 - [Event Patterns](./databases/event-patterns/)
 - [Security Architecture](./SECURITY.md)
+- [Testing Framework](./api-testing/README.md)
 - [Saga Implementation](./databases/saga/)
 
 ## 🧪 Testing
@@ -173,6 +174,9 @@ npm test                    # Run all tests
 npm run test:unit          # Unit tests
 npm run test:integration   # Integration tests
 npm run test:e2e           # End-to-end tests
+npm run test:security      # Security vulnerability tests
+npm run test:contract      # Microservice contract tests
+npm run test:performance   # Performance & load tests
 npm run db:test-saga       # Test saga implementation
 ```
 
