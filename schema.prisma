@@ -72,6 +72,8 @@ model User {
   reports                Report[]
   webhooks               Webhook[]
   auditLogs              AuditLog[]
+  apiKeys                ApiKey[]
+  mfaBackupCodes         MfaBackupCode[]
 
   @@index([email])
   @@index([username])
@@ -352,4 +354,45 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+// API Key Model for advanced API key management
+model ApiKey {
+  id            String    @id @default(uuid())
+  name          String    // Human-readable name for the key
+  keyHash       String    // Hash of the API key (never store plaintext)
+  keyPrefix     String    // First few characters for identification (e.g., "nepa_sk_")
+  userId        String
+  scopes        String[]  // Permission scopes: read, write, admin, custom
+  expiresAt     DateTime?
+  lastUsedAt    DateTime?
+  isActive      Boolean   @default(true)
+  isRevoked     Boolean   @default(false)
+  revokedAt     DateTime?
+  revokedReason String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([keyHash])
+  @@index([keyPrefix])
+  @@index([expiresAt])
+  @@index([isActive])
+}
+
+// Backup codes for MFA recovery
+model MfaBackupCode {
+  id          String   @id @default(uuid())
+  userId      String
+  codeHash    String   // Hash of the backup code
+  isUsed      Boolean  @default(false)
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([codeHash])
 }
