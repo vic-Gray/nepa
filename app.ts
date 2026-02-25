@@ -7,12 +7,17 @@ import { apiKeyAuth } from './src/config/auth';
 import { authenticate, authorize, optionalAuth } from './middleware/authentication';
 import { loggingMiddleware, setupGlobalErrorHandling, errorTracker } from './middleware/logger';
 import { errorTracker as abuseDetector } from './middleware/abuseDetection';
+import { captureAuditContext, auditRateLimit, auditSecurityAlert } from './middleware/auditMiddleware';
 import { swaggerSpec } from './swagger';
 import { upload } from './middleware/upload';
 import { uploadDocument } from './controllers/DocumentController';
 import { getDashboardData, generateReport, exportData } from './controllers/AnalyticsController';
 import { applyPaymentSecurity, processPayment, getPaymentHistory, validatePayment } from './controllers/PaymentController';
 import { setupRateLimitRoutes } from './routes/rateLimitRoutes';
+import auditRoutes from './routes/auditRoutes';
+import { auditCleanupService } from './services/AuditCleanupService';
+import { registerAuditHandlers } from './databases/event-patterns/handlers/auditHandlers';
+import { EventBus } from './databases/event-patterns/EventBus';
 
 const app = express();
 
@@ -53,16 +58,25 @@ app.use(express.json({ limit: '10kb' })); // Limit body size for security
 // 5. Progressive Rate Limiting
 app.use('/api', progressiveLimiter);
 
-// 6. Advanced Rate Limiting (replaces basic rate limiting)
+// 6. Audit Context Capture (before rate limiting to capture all requests)
+app.use('/api', captureAuditContext);
+
+// 7. Advanced Rate Limiting (replaces basic rate limiting)
 app.use('/api', advancedRateLimiter);
 
-// 7. Error tracking for abuse detection
+// 8. Audit rate limit breaches
+app.use('/api', auditRateLimit);
+
+// 9. Error tracking for abuse detection
 app.use(abuseDetector);
 
-// 8. Setup rate limiting routes
+// 10. Setup rate limiting routes
 setupRateLimitRoutes(app);
 
-// 9. API Documentation
+// 11. Audit Routes
+app.use('/api/audit', auditRoutes);
+
+// 12. API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // 10. Enhanced Health Check
@@ -207,6 +221,23 @@ app.post('/api/analytics/reports', apiKeyAuth, generateReport);
 // Export Route
 app.get('/api/analytics/export', apiKeyAuth, exportData);
 
+// Initialize audit system
+const initializeAuditSystem = async () => {
+  try {
+    // Register audit event handlers
+    const eventBus = EventBus.getInstance();
+    registerAuditHandlers(eventBus);
+    
+    // Start audit cleanup service
+    auditCleanupService.start();
+    
+    logger.info('Audit system initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize audit system:', error);
+  }
+};
 
+// Initialize audit system on startup
+initializeAuditSystem();
 
 export default app;

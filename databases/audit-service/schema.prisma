@@ -1,0 +1,191 @@
+// Audit Service Database Schema
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/audit-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("AUDIT_DATABASE_URL")
+}
+
+enum AuditAction {
+  // User Actions
+  USER_REGISTER
+  USER_LOGIN
+  USER_LOGOUT
+  USER_UPDATE_PROFILE
+  USER_CHANGE_PASSWORD
+  USER_ENABLE_2FA
+  USER_DISABLE_2FA
+  USER_VERIFY_EMAIL
+  USER_RESET_PASSWORD
+  USER_REVOKE_SESSION
+  USER_UPDATE_WALLET
+  
+  // Admin Actions
+  ADMIN_UPDATE_USER_ROLE
+  ADMIN_SUSPEND_USER
+  ADMIN_ACTIVATE_USER
+  ADMIN_DELETE_USER
+  ADMIN_VIEW_USER_DATA
+  ADMIN_EXPORT_DATA
+  ADMIN_SYSTEM_CONFIG
+  
+  // Payment Actions
+  PAYMENT_INITIATE
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  PAYMENT_RETRY
+  PAYMENT_REFUND
+  PAYMENT_CANCEL
+  
+  // Billing Actions
+  BILL_CREATE
+  BILL_UPDATE
+  BILL_PAY
+  BILL_CANCEL
+  COUPON_APPLY
+  COUPON_REMOVE
+  
+  // Document Actions
+  DOCUMENT_UPLOAD
+  DOCUMENT_DOWNLOAD
+  DOCUMENT_DELETE
+  DOCUMENT_VIEW
+  
+  // Webhook Actions
+  WEBHOOK_CREATE
+  WEBHOOK_UPDATE
+  WEBHOOK_DELETE
+  WEBHOOK_TRIGGER
+  WEBHOOK_RETRY
+  
+  // System Events
+  RATE_LIMIT_BREACH
+  SECURITY_ALERT
+  LOGIN_FAILURE
+  ACCOUNT_LOCKOUT
+  DATA_EXPORT
+  SYSTEM_ERROR
+}
+
+enum AuditSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILURE
+  PENDING
+  ERROR
+}
+
+model AuditLog {
+  id            String        @id @default(uuid())
+  correlationId String?       // Links related audit events
+  
+  // Actor Information
+  userId        String?       // User performing the action
+  adminId       String?       // Admin performing the action (if different from userId)
+  sessionId     String?       // Session identifier
+  
+  // Action Details
+  action        AuditAction
+  resource      String        // Resource type (user, payment, bill, etc.)
+  resourceId    String?       // Specific resource ID
+  description   String?       // Human-readable description
+  
+  // Context Information
+  ipAddress     String?
+  userAgent     String?
+  endpoint      String?       // API endpoint called
+  method        String?       // HTTP method
+  
+  // Result Information
+  status        AuditStatus   @default(SUCCESS)
+  severity      AuditSeverity @default(LOW)
+  errorMessage  String?
+  
+  // Metadata
+  beforeState   Json?         // State before the action
+  afterState    Json?         // State after the action
+  metadata      Json?         // Additional context data
+  
+  // Compliance
+  retentionDate DateTime?     // When this log can be deleted
+  isArchived    Boolean       @default(false)
+  
+  // Timestamps
+  createdAt     DateTime      @default(now())
+  
+  @@index([userId])
+  @@index([adminId])
+  @@index([action])
+  @@index([resource])
+  @@index([resourceId])
+  @@index([createdAt])
+  @@index([correlationId])
+  @@index([severity])
+  @@index([status])
+  @@index([retentionDate])
+  @@index([isArchived])
+  @@map("audit_logs")
+}
+
+model AuditEvent {
+  id            String   @id @default(uuid())
+  eventType     String   // Event type for event sourcing
+  aggregateId   String   // ID of the aggregate root
+  aggregateType String   // Type of aggregate (User, Payment, etc.)
+  eventData     Json     // Event payload
+  eventVersion  Int      @default(1)
+  correlationId String?
+  causationId   String?  // ID of the command that caused this event
+  
+  // Metadata
+  userId        String?
+  timestamp     DateTime @default(now())
+  
+  @@index([aggregateId])
+  @@index([aggregateType])
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([correlationId])
+  @@map("audit_events")
+}
+
+model ComplianceReport {
+  id          String   @id @default(uuid())
+  reportType  String   // SOC2, PCI_DSS, GDPR, etc.
+  startDate   DateTime
+  endDate     DateTime
+  generatedBy String   // User ID who generated the report
+  
+  // Report Data
+  totalEvents Int
+  reportData  Json     // Aggregated audit data
+  filePath    String?  // Path to generated report file
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([reportType])
+  @@index([startDate, endDate])
+  @@index([generatedBy])
+  @@map("compliance_reports")
+}
+
+model AuditRetentionPolicy {
+  id            String   @id @default(uuid())
+  resourceType  String   @unique // user, payment, bill, etc.
+  retentionDays Int      // Days to retain audit logs
+  isActive      Boolean  @default(true)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("audit_retention_policies")
+}
