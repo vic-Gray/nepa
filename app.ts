@@ -13,8 +13,41 @@ import { uploadDocument } from './controllers/DocumentController';
 import { getDashboardData, generateReport, exportData } from './controllers/AnalyticsController';
 import { applyPaymentSecurity, processPayment, getPaymentHistory, validatePayment } from './controllers/PaymentController';
 import { setupRateLimitRoutes } from './routes/rateLimitRoutes';
+import { initializeCacheSystem } from './services/cache/CacheInitializer';
+import { cacheHealthMiddleware, apiCacheMiddleware, cacheInvalidationMiddleware } from './middleware/cacheMiddleware';
+import cacheRoutes from './routes/cacheRoutes';
+import { logger } from './services/logger';
+
+// Mock services for now - replace with actual implementations
+const performanceMonitor = {
+  getHealthStatus: () => ({ status: 'healthy' }),
+  getMemoryUsage: () => ({ heapUsed: 0, heapTotal: 0, external: 0 }),
+  getRequestMetrics: (limit: number) => [],
+  getCustomMetrics: (limit: number) => []
+};
+
+const analyticsService = {
+  getAnalyticsData: () => ({ userEvents: [], activeUsers: 0 })
+};
 
 const app = express();
+
+// Initialize cache system on startup
+initializeCacheSystem().then(result => {
+  if (result.success) {
+    logger.info('Cache system initialized successfully', {
+      initializationTime: result.metrics.initializationTime,
+      services: result.services
+    });
+  } else {
+    logger.error('Cache system initialization failed', {
+      errors: result.errors,
+      warnings: result.warnings
+    });
+  }
+}).catch(error => {
+  logger.error('Cache system initialization error:', error);
+});
 
 // Initialize logging and monitoring
 logger.info('Application starting up', { 
@@ -62,10 +95,13 @@ app.use(abuseDetector);
 // 8. Setup rate limiting routes
 setupRateLimitRoutes(app);
 
-// 9. API Documentation
+// 9. Cache health check middleware
+app.use(cacheHealthMiddleware());
+
+// 10. API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// 10. Enhanced Health Check
+// 11. Enhanced Health Check
 app.get('/health', (req, res) => {
   const healthStatus = performanceMonitor.getHealthStatus();
   const memoryUsage = performanceMonitor.getMemoryUsage();
@@ -208,5 +244,12 @@ app.post('/api/analytics/reports', apiKeyAuth, generateReport);
 app.get('/api/analytics/export', apiKeyAuth, exportData);
 
 
+
+export default app;
+// Cache Management Routes (Admin only)
+app.use('/api/cache', cacheRoutes);
+
+// Add cache middleware to existing routes for better performance
+// Note: These would be added to existing route definitions in a real implementation
 
 export default app;
