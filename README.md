@@ -163,6 +163,7 @@ const result = await PaymentSaga.executePayment({
 - [Database Architecture](./databases/README.md)
 - [Migration Guide](./databases/migration-guide.md)
 - [Event Patterns](./databases/event-patterns/)
+- [Security Architecture](./SECURITY.md)
 - [Saga Implementation](./databases/saga/)
 
 ## 🧪 Testing
