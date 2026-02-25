@@ -5,7 +5,8 @@ import {
   roleBasedRateLimiter,
   rateLimitAnalyticsHandler,
   breachHistoryHandler,
-  userProfileHandler
+  userProfileHandler,
+  apiKeyRateLimiter
 } from '../middleware/advancedRateLimiter';
 import { 
   getRateLimitAnalytics,
@@ -15,7 +16,19 @@ import {
   updateUserRateLimitProfile,
   checkRateLimit,
   getRateLimitTiers,
-  getRateLimitRules
+  getRateLimitRules,
+  generateAPIKey,
+  getUserAPIKeys,
+  getAPIKeyDetails,
+  revokeAPIKey,
+  getAPIKeyUsage,
+  getBlockedIPs,
+  blockIP,
+  unblockIP,
+  whitelistIP,
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  getBreachHistory as getBreachHistoryController
 } from '../controllers/RateLimitController';
 import { authenticate, authorize } from '../middleware/authentication';
 import { UserRole } from '../types/rateLimit';
@@ -25,6 +38,7 @@ export function setupRateLimitRoutes(app: any) {
   // Apply advanced rate limiting to all API routes
   app.use('/api', advancedRateLimiter);
   app.use('/api', burstHandler);
+  app.use('/api', apiKeyRateLimiter);
 
   // Rate limiting analytics endpoints
   app.get('/api/rate-limit/analytics', apiKeyAuth, rateLimitAnalyticsHandler);
@@ -41,6 +55,30 @@ export function setupRateLimitRoutes(app: any) {
   // Configuration endpoints
   app.get('/api/rate-limit/tiers', apiKeyAuth, getRateLimitTiers);
   app.get('/api/rate-limit/rules', apiKeyAuth, getRateLimitRules);
+
+  /**
+   * API Key Management Routes
+   */
+  app.post('/api/rate-limit/api-keys/generate', authenticate, generateAPIKey);
+  app.get('/api/rate-limit/api-keys', authenticate, getUserAPIKeys);
+  app.get('/api/rate-limit/api-keys/:keyId', authenticate, getAPIKeyDetails);
+  app.post('/api/rate-limit/api-keys/:keyId/revoke', authenticate, revokeAPIKey);
+  app.get('/api/rate-limit/api-keys/:keyId/usage', authenticate, getAPIKeyUsage);
+
+  /**
+   * IP Blocking Management Routes
+   */
+  app.get('/api/rate-limit/ip-blocking/blocked', authenticate, authorize(UserRole.ADMIN), getBlockedIPs);
+  app.post('/api/rate-limit/ip-blocking/block', authenticate, authorize(UserRole.ADMIN), blockIP);
+  app.post('/api/rate-limit/ip-blocking/unblock', authenticate, authorize(UserRole.ADMIN), unblockIP);
+  app.post('/api/rate-limit/ip-blocking/whitelist', authenticate, authorize(UserRole.ADMIN), whitelistIP);
+
+  /**
+   * Breach Notification Routes
+   */
+  app.get('/api/rate-limit/notifications/preferences', authenticate, getNotificationPreferences);
+  app.post('/api/rate-limit/notifications/preferences', authenticate, updateNotificationPreferences);
+  app.get('/api/rate-limit/breach-history', authenticate, getBreachHistoryController);
 
   // Role-specific rate limiting examples
   app.get('/api/admin/protected', authenticate, roleBasedRateLimiter(UserRole.ADMIN), (req, res) => {

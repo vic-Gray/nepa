@@ -1,0 +1,197 @@
+version: '3.8'
+
+services:
+  # Redis Cache Cluster for High Availability
+  redis-master:
+    image: redis:7-alpine
+    container_name: nepa-redis-master
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_master_data:/data
+      - ./config/redis/redis-master.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_REPLICATION_MODE=master
+    networks:
+      - nepa-cache-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis-replica-1:
+    image: redis:7-alpine
+    container_name: nepa-redis-replica-1
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_replica1_data:/data
+      - ./config/redis/redis-replica.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --replicaof redis-master 6379
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+    networks:
+      - nepa-cache-network
+    depends_on:
+      - redis-master
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis-replica-2:
+    image: redis:7-alpine
+    container_name: nepa-redis-replica-2
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_replica2_data:/data
+      - ./config/redis/redis-replica.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --replicaof redis-master 6379
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+    networks:
+      - nepa-cache-network
+    depends_on:
+      - redis-master
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis Sentinel for Automatic Failover
+  redis-sentinel-1:
+    image: redis:7-alpine
+    container_name: nepa-redis-sentinel-1
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./config/redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    networks:
+      - nepa-cache-network
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    restart: unless-stopped
+
+  redis-sentinel-2:
+    image: redis:7-alpine
+    container_name: nepa-redis-sentinel-2
+    ports:
+      - "26380:26379"
+    volumes:
+      - ./config/redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    networks:
+      - nepa-cache-network
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    restart: unless-stopped
+
+  redis-sentinel-3:
+    image: redis:7-alpine
+    container_name: nepa-redis-sentinel-3
+    ports:
+      - "26381:26379"
+    volumes:
+      - ./config/redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    networks:
+      - nepa-cache-network
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    restart: unless-stopped
+
+  # Redis Exporter for Prometheus Monitoring
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: nepa-redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis-master:6379
+      - REDIS_EXPORTER_LOG_FORMAT=txt
+    networks:
+      - nepa-cache-network
+    depends_on:
+      - redis-master
+    restart: unless-stopped
+
+  # Cache Warming Service (separate container for scaling)
+  cache-warmer:
+    build:
+      context: .
+      dockerfile: Dockerfile.cache-warmer
+    container_name: nepa-cache-warmer
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - REDIS_HOST=redis-master
+      - REDIS_PORT=6379
+      - DATABASE_URL=${DATABASE_URL}
+      - CACHE_WARMUP_ENABLED=true
+      - CACHE_WARMUP_INTERVAL=30
+    networks:
+      - nepa-cache-network
+      - nepa-network
+    depends_on:
+      - redis-master
+    restart: unless-stopped
+
+volumes:
+  redis_master_data:
+    driver: local
+  redis_replica1_data:
+    driver: local
+  redis_replica2_data:
+    driver: local
+
+networks:
+  nepa-cache-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  nepa-network:
+    external: true
+
+# Development override (single Redis instance)
+# Use: docker-compose -f docker-compose.cache.yml -f docker-compose.cache.dev.yml up
+---
+version: '3.8'
+
+services:
+  redis-dev:
+    image: redis:7-alpine
+    container_name: nepa-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    networks:
+      - nepa-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis_dev_data:
+    driver: local

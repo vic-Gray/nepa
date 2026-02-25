@@ -1,20 +1,52 @@
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
-import { apiLimiter, ddosDetector, checkBlockedIP, ipRestriction, progressiveLimiter, authLimiter } from './middleware/rateLimiter';
-import { advancedRateLimiter, burstHandler } from './middleware/advancedRateLimiter';
+import { apiLimiter, ddosDetector, checkBlockedIP, ipRestriction, progressiveLimiter } from './middleware/rateLimiter';
 import { configureSecurity } from './middleware/security';
-import { apiKeyAuth } from './src/config/auth';
-import { authenticate, authorize, optionalAuth } from './middleware/authentication';
+import { apiKeyAuth } from './middleware/auth';
 import { loggingMiddleware, setupGlobalErrorHandling, errorTracker } from './middleware/logger';
 import { errorTracker as abuseDetector } from './middleware/abuseDetection';
+import { captureAuditContext, auditRateLimit, auditSecurityAlert } from './middleware/auditMiddleware';
 import { swaggerSpec } from './swagger';
 import { upload } from './middleware/upload';
 import { uploadDocument } from './controllers/DocumentController';
 import { getDashboardData, generateReport, exportData } from './controllers/AnalyticsController';
 import { applyPaymentSecurity, processPayment, getPaymentHistory, validatePayment } from './controllers/PaymentController';
 import { setupRateLimitRoutes } from './routes/rateLimitRoutes';
+import auditRoutes from './routes/auditRoutes';
+import { auditCleanupService } from './services/AuditCleanupService';
+import { registerAuditHandlers } from './databases/event-patterns/handlers/auditHandlers';
+import { EventBus } from './databases/event-patterns/EventBus';
+
+// Mock services for now - replace with actual implementations
+const performanceMonitor = {
+  getHealthStatus: () => ({ status: 'healthy' }),
+  getMemoryUsage: () => ({ heapUsed: 0, heapTotal: 0, external: 0 }),
+  getRequestMetrics: (limit: number) => [],
+  getCustomMetrics: (limit: number) => []
+};
+
+const analyticsService = {
+  getAnalyticsData: () => ({ userEvents: [], activeUsers: 0 })
+};
 
 const app = express();
+
+// Initialize cache system on startup
+initializeCacheSystem().then(result => {
+  if (result.success) {
+    logger.info('Cache system initialized successfully', {
+      initializationTime: result.metrics.initializationTime,
+      services: result.services
+    });
+  } else {
+    logger.error('Cache system initialization failed', {
+      errors: result.errors,
+      warnings: result.warnings
+    });
+  }
+}).catch(error => {
+  logger.error('Cache system initialization error:', error);
+});
 
 // Initialize logging and monitoring
 logger.info('Application starting up', { 
@@ -31,10 +63,6 @@ if (process.env.SENTRY_DSN) {
     release: process.env.npm_package_version
   });
 }
-
-// Initialize controllers
-const authController = new AuthenticationController();
-const userController = new UserController();
 
 // 1. Comprehensive logging middleware (should be first)
 app.use(...loggingMiddleware);
@@ -53,19 +81,30 @@ app.use(express.json({ limit: '10kb' })); // Limit body size for security
 // 5. Progressive Rate Limiting
 app.use('/api', progressiveLimiter);
 
-// 6. Advanced Rate Limiting (replaces basic rate limiting)
+// 6. Audit Context Capture (before rate limiting to capture all requests)
+app.use('/api', captureAuditContext);
+
+// 7. Advanced Rate Limiting (replaces basic rate limiting)
 app.use('/api', advancedRateLimiter);
 
-// 7. Error tracking for abuse detection
+// 8. Audit rate limit breaches
+app.use('/api', auditRateLimit);
+
+// 9. Error tracking for abuse detection
 app.use(abuseDetector);
 
-// 8. Setup rate limiting routes
+// 10. Setup rate limiting routes
 setupRateLimitRoutes(app);
 
-// 9. API Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// 11. Audit Routes
+app.use('/api/audit', auditRoutes);
 
-// 10. Enhanced Health Check
+// 12. API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api-docs/v1', swaggerUi.serve, swaggerUi.setup(getVersionedSwaggerSpec('v1')));
+app.use('/api-docs/v2', swaggerUi.serve, swaggerUi.setup(getVersionedSwaggerSpec('v2')));
+
+// 11. Enhanced Health Check
 app.get('/health', (req, res) => {
   const healthStatus = performanceMonitor.getHealthStatus();
   const memoryUsage = performanceMonitor.getMemoryUsage();
@@ -87,11 +126,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 10. Monitoring endpoints
+// 10. Monitoring endpoints (unversioned)
 app.get('/api/monitoring/metrics', apiKeyAuth, (req, res) => {
   const analytics = analyticsService.getAnalyticsData();
   const performance = performanceMonitor.getHealthStatus();
-  
+
   res.json({
     analytics,
     performance,
@@ -100,56 +139,14 @@ app.get('/api/monitoring/metrics', apiKeyAuth, (req, res) => {
   });
 });
 
-// 11. Protected API Routes
-app.use('/api', apiKeyAuth);
-
-// Authentication endpoints with stricter rate limiting
-app.post('/api/auth/register', authLimiter, authController.register.bind(authController));
-app.post('/api/auth/login', authLimiter, authController.login.bind(authController));
-app.post('/api/auth/wallet', authLimiter, authController.loginWithWallet.bind(authController));
-app.post('/api/auth/refresh', authLimiter, authController.refreshToken.bind(authController));
-app.post('/api/auth/logout', authenticate, authController.logout.bind(authController));
-
-// User profile endpoints
-app.get('/api/user/profile', authenticate, authController.getProfile.bind(authController));
-app.put('/api/user/profile', authenticate, userController.updateProfile.bind(userController));
-app.get('/api/user/preferences', authenticate, userController.getPreferences.bind(userController));
-app.put('/api/user/preferences', authenticate, userController.updatePreferences.bind(userController));
-app.post('/api/user/change-password', authenticate, userController.changePassword.bind(userController));
-
-// Two-factor authentication endpoints
-app.post('/api/user/2fa/enable', authenticate, authController.enableTwoFactor.bind(authController));
-app.post('/api/user/2fa/verify', authenticate, authController.verifyTwoFactor.bind(authController));
-
-// User sessions
-app.get('/api/user/sessions', authenticate, userController.getUserSessions.bind(userController));
-app.delete('/api/user/sessions/:sessionId', authenticate, userController.revokeSession.bind(userController));
-
-// Admin user management endpoints
-app.get('/api/admin/users', authenticate, authorize(UserRole.ADMIN), userController.getAllUsers.bind(userController));
-app.get('/api/admin/users/:id', authenticate, authorize(UserRole.ADMIN), userController.getUserById.bind(userController));
-app.put('/api/admin/users/:id/role', authenticate, authorize(UserRole.ADMIN), userController.updateUserRole.bind(userController));
-app.delete('/api/admin/users/:id', authenticate, authorize(UserRole.ADMIN), userController.deleteUser.bind(userController));
-
-// Payment endpoints with enhanced security
-app.post('/api/payment/process', ...applyPaymentSecurity, processPayment);
-app.get('/api/payment/history', apiKeyAuth, getPaymentHistory);
-app.post('/api/payment/validate', ...applyPaymentSecurity, validatePayment);
-
-// Example protected route
-/**
- * @openapi
- * /api/test:
- *   get:
- *     summary: Test protected route
- *     security:
- *       - ApiKeyAuth: []
- *     responses:
- *       200:
- *         description: Success
- */
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'Authenticated access successful' });
+// 11. API version discovery (no auth required for discovery)
+app.get('/api/versions', (_req, res) => {
+  res.json({
+    defaultVersion: apiVersioningConfig.defaultVersion,
+    latestVersion: apiVersioningConfig.latestVersion,
+    supportedVersions: apiVersioningConfig.supportedVersions,
+    lifecycle: apiVersioningConfig.lifecycle,
+  });
 });
 
 // Document Upload Route
@@ -207,6 +204,30 @@ app.post('/api/analytics/reports', apiKeyAuth, generateReport);
 // Export Route
 app.get('/api/analytics/export', apiKeyAuth, exportData);
 
+// Initialize audit system
+const initializeAuditSystem = async () => {
+  try {
+    // Register audit event handlers
+    const eventBus = EventBus.getInstance();
+    registerAuditHandlers(eventBus);
+    
+    // Start audit cleanup service
+    auditCleanupService.start();
+    
+    logger.info('Audit system initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize audit system:', error);
+  }
+};
 
+// Initialize audit system on startup
+initializeAuditSystem();
+
+export default app;
+// Cache Management Routes (Admin only)
+app.use('/api/cache', cacheRoutes);
+
+// Add cache middleware to existing routes for better performance
+// Note: These would be added to existing route definitions in a real implementation
 
 export default app;

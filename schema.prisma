@@ -19,6 +19,25 @@ enum PaymentStatus {
   PENDING
 }
 
+enum BlockchainNetwork {
+  STELLAR
+  ETHEREUM
+  POLYGON
+  BSC
+  ARBITRUM
+  OPTIMISM
+}
+
+enum CrossChainStatus {
+  INITIATED
+  SOURCE_CONFIRMED
+  BRIDGE_PROCESSING
+  DESTINATION_PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
 enum UserRole {
   USER
   ADMIN
@@ -49,7 +68,7 @@ model User {
   avatar            String?
   role              UserRole         @default(USER)
   status            UserStatus       @default(PENDING_VERIFICATION)
-  walletAddress     String?          @unique // Stellar wallet address
+  walletAddress     String?          @unique // Stellar wallet address (legacy)
   isEmailVerified   Boolean          @default(false)
   isPhoneVerified   Boolean          @default(false)
   twoFactorEnabled  Boolean          @default(false)
@@ -72,8 +91,7 @@ model User {
   reports                Report[]
   webhooks               Webhook[]
   auditLogs              AuditLog[]
-  apiKeys                ApiKey[]
-  mfaBackupCodes         MfaBackupCode[]
+  blockchainWallets      BlockchainWallet[]
 
   @@index([email])
   @@index([username])
@@ -128,21 +146,41 @@ model Coupon {
 }
 
 model Payment {
-  id            String        @id @default(uuid())
-  amount        Decimal       @db.Decimal(10, 2)
-  method        String
-  status        PaymentStatus @default(PENDING)
-  transactionId String?       @unique
-  billId        String
-  userId        String
-  createdAt     DateTime      @default(now())
+  id               String          @id @default(uuid())
+  amount           Decimal         @db.Decimal(10, 2)
+  method           String
+  status           PaymentStatus   @default(PENDING)
+  transactionId    String?         @unique
+  billId           String
+  userId           String
+  network          BlockchainNetwork @default(STELLAR)
+  transactionHash  String?         // Blockchain transaction hash
+  gasUsed          String?         // Gas used for EVM transactions
+  gasPrice         String?         // Gas price for EVM transactions
+  fee              Decimal?        @db.Decimal(10, 2) // Network fee
+  asset            String          @default("XLM") // Asset symbol (XLM, ETH, MATIC, etc.)
+  confirmations    Int?            // Number of confirmations
+  blockNumber      Int?            // Block number when confirmed
+  blockHash        String?         // Block hash when confirmed
+  fraudScore       Float?          // Fraud detection score
+  fraudRiskLevel   FraudRiskLevel? // Risk level from fraud detection
+  isBlocked        Boolean         @default(false) // Whether transaction was blocked by fraud detection
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  bill          Bill          @relation(fields: [billId], references: [id])
-  user          User          @relation(fields: [userId], references: [id])
+  bill             Bill            @relation(fields: [billId], references: [id])
+  user             User            @relation(fields: [userId], references: [id])
+  fraudCase        FraudCase?       @relation(fields: [transactionId], references: [id])
 
   @@index([billId])
   @@index([userId])
   @@index([transactionId])
+  @@index([transactionHash])
+  @@index([network])
+  @@index([status])
+  @@index([fraudRiskLevel])
+  @@index([isBlocked])
+  @@index([createdAt])
 }
 
 model NotificationPreference {
@@ -356,43 +394,250 @@ model AuditLog {
   @@index([createdAt])
 }
 
-// API Key Model for advanced API key management
-model ApiKey {
-  id            String    @id @default(uuid())
-  name          String    // Human-readable name for the key
-  keyHash       String    // Hash of the API key (never store plaintext)
-  keyPrefix     String    // First few characters for identification (e.g., "nepa_sk_")
-  userId        String
-  scopes        String[]  // Permission scopes: read, write, admin, custom
-  expiresAt     DateTime?
+model CrossChainTransaction {
+  id                        String            @id @default(uuid())
+  fromNetwork              BlockchainNetwork
+  toNetwork                BlockchainNetwork
+  fromAddress              String
+  toAddress                String
+  amount                   String
+  asset                    String
+  status                   CrossChainStatus   @default(INITIATED)
+  sourceTransactionHash    String?            // Source blockchain transaction hash
+  destinationTransactionHash String?         // Destination blockchain transaction hash
+  bridgeContract           String?            // Bridge contract address
+  bridgeProvider           String?            // Name of bridge provider
+  bridgeFee                Decimal?           @db.Decimal(10, 2) // Bridge fee
+  slippageTolerance        Decimal?           @db.Decimal(5, 2) // Slippage tolerance percentage
+  estimatedCompletion      DateTime?          // Estimated completion time
+  sourceConfirmations      Int?               // Number of confirmations on source chain
+  destinationConfirmations Int?               // Number of confirmations on destination chain
+  errorMessage             String?            // Error message if failed
+  metadata                 Json?              // Additional bridge-specific data
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  @@index([fromNetwork])
+  @@index([toNetwork])
+  @@index([fromAddress])
+  @@index([toAddress])
+  @@index([status])
+  @@index([sourceTransactionHash])
+  @@index([destinationTransactionHash])
+  @@index([bridgeProvider])
+  @@index([createdAt])
+}
+
+model BlockchainWallet {
+  id            String            @id @default(uuid())
+  userId        String            @unique
+  network       BlockchainNetwork
+  address       String            @unique
+  publicKey     String?           // Public key for Stellar
+  encryptedData String?           // Encrypted private key or seed
+  walletType    String            // 'METAMASK', 'FREIGHTER', 'PRIVATE_KEY', etc.
+  isActive      Boolean           @default(true)
   lastUsedAt    DateTime?
-  isActive      Boolean   @default(true)
-  isRevoked     Boolean   @default(false)
-  revokedAt     DateTime?
-  revokedReason String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user          User              @relation(fields: [userId], references: [id])
+
   @@index([userId])
-  @@index([keyHash])
-  @@index([keyPrefix])
-  @@index([expiresAt])
+  @@index([network])
+  @@index([address])
+  @@index([walletType])
   @@index([isActive])
 }
 
-// Backup codes for MFA recovery
-model MfaBackupCode {
-  id          String   @id @default(uuid())
-  userId      String
-  codeHash    String   // Hash of the backup code
-  isUsed      Boolean  @default(false)
-  usedAt      DateTime?
-  createdAt   DateTime @default(now())
-  
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+model NetworkConfig {
+  id              String            @id @default(uuid())
+  network         BlockchainNetwork @unique
+  name            String            // Display name (e.g., "Ethereum Mainnet")
+  rpcUrl          String            // RPC endpoint URL
+  testnetRpcUrl   String?           // Testnet RPC URL
+  chainId         Int?              // Chain ID for EVM networks
+  testnetChainId  Int?              // Testnet chain ID
+  blockExplorer    String?           // Block explorer URL
+  currency        String            // Native currency symbol
+  decimals        Int               // Number of decimal places
+  gasLimit        Int?              // Default gas limit
+  minGasPrice     String?           // Minimum gas price
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([network])
+  @@index([isActive])
+}
+
+// Fraud Detection Models
+enum FraudRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FraudDetectionStatus {
+  PENDING
+  REVIEW_REQUIRED
+  APPROVED
+  REJECTED
+  CONFIRMED_FRAUD
+  FALSE_POSITIVE
+}
+
+enum FraudType {
+  ACCOUNT_TAKEOVER
+  SYNTHETIC_IDENTITY
+  CARD_TESTING
+  VELOCITY_ATTACK
+  COLLUSION
+  MONEY_LAUNDERING
+  UNUSUAL_PATTERN
+  GEOGRAPHIC_ANOMALY
+  DEVICE_ANOMALY
+  BEHAVIORAL_ANOMALY
+  AMOUNT_ANOMALY
+  TIME_ANOMALY
+}
+
+model FraudCase {
+  id                    String                @id @default(uuid())
+  transactionId         String                @unique
+  userId                String
+  riskScore             Float
+  riskLevel             FraudRiskLevel
+  detectedFraudTypes     FraudType[]
+  status                FraudDetectionStatus  @default(PENDING)
+  reviewerId            String?
+  reviewNotes           String?
+  actualOutcome         String?               // 'fraud' | 'legitimate' | 'investigating'
+  modelVersion          String
+  features              Json                  // Transaction features as JSON
+  detectionResult       Json                  // Full detection result as JSON
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  resolvedAt            DateTime?
+
+  user                  User                  @relation(fields: [userId], references: [id])
+  payment               Payment?              @relation(fields: [transactionId], references: [id])
+
   @@index([userId])
-  @@index([codeHash])
+  @@index([transactionId])
+  @@index([riskLevel])
+  @@index([status])
+  @@index([reviewerId])
+  @@index([createdAt])
+  @@index([resolvedAt])
+}
+
+model FraudAlert {
+  id            String        @id @default(uuid())
+  caseId        String
+  transactionId String
+  userId        String
+  alertType     FraudType
+  severity      FraudRiskLevel
+  message       String
+  details       Json?         // Additional alert details
+  isAcknowledged Boolean       @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([caseId])
+  @@index([transactionId])
+  @@index([userId])
+  @@index([alertType])
+  @@index([severity])
+  @@index([isAcknowledged])
+  @@index([createdAt])
+}
+
+model ManualReviewWorkflow {
+  id                    String   @id @default(uuid())
+  caseId                String   @unique
+  assignedTo            String?
+  status                String   // 'pending' | 'in_progress' | 'completed' | 'escalated'
+  priority              String   // 'low' | 'medium' | 'high' | 'critical'
+  dueDate               DateTime?
+  verifyUserIdentity    Boolean  @default(false)
+  checkTransactionHistory Boolean @default(false)
+  validateGeographicData Boolean @default(false)
+  reviewDeviceInformation Boolean @default(false)
+  analyzeBehavioralPatterns Boolean @default(false)
+  contactUserIfNecessary Boolean @default(false)
+  notes                 String[] @default([])
+  attachments            String[] @default([])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  completedAt           DateTime?
+
+  @@index([caseId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+  @@index([createdAt])
+}
+
+model FraudPattern {
+  id                String        @id @default(uuid())
+  name              String
+  description       String
+  fraudType         FraudType
+  pattern           String        // JSON pattern definition
+  isActive          Boolean       @default(true)
+  severity          FraudRiskLevel
+  detectionRules    String[]      @default([])
+  falsePositiveRate Float         @default(0.0)
+  detectionRate     Float         @default(0.0)
+  lastTriggered     DateTime?
+  triggerCount      Int           @default(0)
+  createdBy         String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([fraudType])
+  @@index([isActive])
+  @@index([severity])
+  @@index([lastTriggered])
+  @@index([createdBy])
+}
+
+model MLTrainingData {
+  id            String   @id @default(uuid())
+  transactionId  String   @unique
+  features       Json     // Transaction features as JSON
+  isFraud        Boolean
+  fraudType      FraudType?
+  confidence     Float
+  modelVersion   String
+  dataSource     String   // 'manual_review' | 'chargeback' | 'user_report' | 'automated'
+  createdAt      DateTime @default(now())
+
+  @@index([transactionId])
+  @@index([isFraud])
+  @@index([fraudType])
+  @@index([modelVersion])
+  @@index([dataSource])
+  @@index([createdAt])
+}
+
+model FraudBlacklist {
+  id            String   @id @default(uuid())
+  type          String   // 'address' | 'ip' | 'device' | 'user_agent'
+  value         String   @unique
+  reason        String
+  isActive      Boolean  @default(true)
+  addedBy       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+  @@index([addedBy])
+  @@index([createdAt])
 }

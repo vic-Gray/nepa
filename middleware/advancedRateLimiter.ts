@@ -4,9 +4,13 @@ import RedisStore from 'rate-limit-redis';
 import Redis from 'ioredis';
 import { AdvancedRateLimitService } from '../services/AdvancedRateLimitService';
 import { RateLimitBreach } from '../types/rateLimit';
+import { IPBlockingService } from '../services/IPBlockingService';
+import { RateLimitBreachNotificationService } from '../services/RateLimitBreachNotificationService';
 
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 const rateLimitService = new AdvancedRateLimitService();
+const ipBlockingService = new IPBlockingService();
+const notificationService = new RateLimitBreachNotificationService();
 
 // Breach alerting system
 rateLimitService.onBreach(async (breach: RateLimitBreach) => {
@@ -18,15 +22,43 @@ rateLimitService.onBreach(async (breach: RateLimitBreach) => {
     timestamp: breach.timestamp
   });
 
-  // In production, this would send alerts to:
-  // - Slack channels
-  // - Email notifications
-  // - PagerDuty for critical breaches
-  // - Security teams
-  
-  if (breach.severity === 'CRITICAL') {
-    // Auto-block for critical breaches
-    await redis.setex(`auto_block:${breach.ip}`, 3600, 'critical_breach');
+  // Send notifications through configured channels
+  try {
+    await notificationService.notifyBreach(breach);
+  } catch (error) {
+    console.error('Notification error:', error);
+  }
+
+  // Handle IP blocking based on severity and breach type
+  try {
+    if (breach.severity === 'CRITICAL') {
+      // Auto-block for critical breaches
+      await ipBlockingService.blockIP(
+        breach.ip,
+        `Critical rate limit breach: ${breach.breachType}`,
+        'CRITICAL',
+        true,
+        {
+          breachId: breach.id,
+          endpoint: breach.endpoint,
+          detectedAt: new Date()
+        }
+      );
+    } else if (breach.severity === 'HIGH' && breach.breachType === 'DDOS') {
+      // Auto-block for DDOS patterns
+      await ipBlockingService.recordAbuse(breach.ip, 'DDOS_PATTERN', {
+        endpoint: breach.endpoint,
+        breachId: breach.id
+      });
+    } else if (breach.severity === 'HIGH') {
+      // Record abuse for high severity
+      await ipBlockingService.recordAbuse(breach.ip, 'RATE_LIMIT_BREACH', {
+        endpoint: breach.endpoint,
+        breachId: breach.id
+      });
+    }
+  } catch (error) {
+    console.error('IP blocking error:', error);
   }
 });
 
@@ -36,6 +68,41 @@ export const advancedRateLimiter = async (req: Request, res: Response, next: Nex
     // Skip for health checks and internal monitoring
     if (req.path === '/health' || req.path.startsWith('/api/monitoring')) {
       return next();
+    }
+
+    const clientIP = req.ip || (req.connection as any).remoteAddress;
+
+    // Check if IP is whitelisted
+    const isWhitelisted = await ipBlockingService.isIPWhitelisted(clientIP);
+    if (isWhitelisted) {
+      return next();
+    }
+
+    // Check if IP is blocked
+    const blockRecord = await ipBlockingService.isIPBlocked(clientIP);
+    if (blockRecord) {
+      return res.status(403).json({
+        status: 403,
+        error: 'Access denied',
+        message: `Your IP has been blocked due to: ${blockRecord.reason}`,
+        severity: blockRecord.severity,
+        blockedUntil: blockRecord.expiresAt.toISOString()
+      });
+    }
+
+    // Analyze DDOS patterns
+    const isDDOSPattern = await ipBlockingService.analyzeDDOSPattern(clientIP, req.path, req.method);
+    if (isDDOSPattern) {
+      await ipBlockingService.recordAbuse(clientIP, 'DDOS_PATTERN', {
+        endpoint: req.path,
+        method: req.method
+      });
+
+      return res.status(429).json({
+        status: 429,
+        error: 'Too many requests',
+        message: 'Suspicious activity detected. Please try again later.'
+      });
     }
 
     // Get user profile and effective rate limit
@@ -350,3 +417,52 @@ export const paymentLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// API Key-based rate limiting middleware
+import { APIKeyManagementService } from '../services/APIKeyManagementService';
+
+const apiKeyService = new APIKeyManagementService();
+
+export const apiKeyRateLimiter = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Only apply to API key authenticated requests
+    const apiKeyValidation = await apiKeyService.validateAPIKey(req);
+    
+    if (!apiKeyValidation.valid) {
+      // Not an API key request, pass through
+      return next();
+    }
+
+    const keyData = apiKeyValidation.keyData!;
+    
+    // Check rate limit for API key
+    const result = await apiKeyService.checkRateLimit(keyData.id, keyData);
+    
+    if (!result.allowed) {
+      return res.status(429).json({
+        status: 429,
+        error: 'API Key rate limit exceeded',
+        message: `Rate limit: ${keyData.rateLimit} per ${Math.ceil(keyData.windowMs / 60000)} minutes`,
+        tier: keyData.tier,
+        retryAfter: Math.ceil((result.resetTime.getTime() - Date.now()) / 1000),
+        resetTime: result.resetTime.toISOString()
+      });
+    }
+
+    // Set rate limit headers
+    res.set({
+      'X-RateLimit-Limit': keyData.rateLimit.toString(),
+      'X-RateLimit-Remaining': result.remaining.toString(),
+      'X-RateLimit-Reset': result.resetTime.toISOString(),
+      'X-RateLimit-Tier': keyData.tier
+    });
+
+    // Store API key info in request for downstream handlers
+    (req as any).apiKey = keyData;
+
+    next();
+  } catch (error) {
+    console.error('API key rate limiting error:', error);
+    next();
+  }
+};

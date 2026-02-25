@@ -42,6 +42,7 @@
     "@sentry/tracing": "^7.77.0",
     "cls-rtracer": "^2.6.0",
     "performance-now": "^2.1.0",
+    "node-cron": "^3.0.3",
     "@opentelemetry/sdk-node": "^0.45.0",
     "@opentelemetry/auto-instrumentations-node": "^0.40.0",
     "@opentelemetry/exporter-jaeger": "^1.18.0",
@@ -52,7 +53,17 @@
     "@opentelemetry/instrumentation-express": "^0.34.0",
     "@prisma/instrumentation": "^5.6.0",
     "prom-client": "^15.0.0",
-    "ws": "^8.14.2"
+    "ws": "^8.14.2",
+    "ethers": "^6.8.0",
+    "web3": "^4.2.0",
+    "@tensorflow/tfjs": "^4.10.0",
+    "@tensorflow/tfjs-node": "^4.10.0",
+    "node-cron": "^3.0.2",
+    "geoip-lite": "^1.4.7",
+    "useragent": "^2.3.0",
+    "@aws-sdk/client-s3": "^3.400.0",
+    "@aws-sdk/client-cloudwatch": "^3.400.0",
+    "@aws-sdk/client-ses": "^3.400.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -75,6 +86,9 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/jest-dom": "^6.1.0",
     "@testing-library/user-event": "^14.4.3",
+    "@types/geoip-lite": "^1.4.2",
+    "@types/node-cron": "^3.0.8",
+    "@types/useragent": "^2.3.1",
     "jest-environment-jsdom": "^29.7.0",
     "typescript": "^5.2.2",
     "prisma": "^5.6.0",
@@ -89,7 +103,8 @@
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "@types/jest-environment-jsdom": "^29.5.1",
-    "@types/performance-now": "^2.0.2"
+    "@types/performance-now": "^2.0.2",
+    "@types/web3": "^1.2.2"
   },
   "scripts": {
     "dev": "ts-node app.ts",
@@ -133,6 +148,18 @@
     "messaging:start": "docker-compose -f docker-compose.messaging.yml up -d",
     "messaging:stop": "docker-compose -f docker-compose.messaging.yml down",
     "messaging:logs": "docker-compose -f docker-compose.messaging.yml logs -f",
-    "test:events": "ts-node scripts/test-events.ts"
+    "test:events": "ts-node scripts/test-events.ts",
+    "audit:setup": "ts-node scripts/setup-audit-database.ts",
+    "audit:docker-up": "docker-compose -f docker/docker-compose.audit.yml up -d",
+    "audit:docker-down": "docker-compose -f docker/docker-compose.audit.yml down",
+    "audit:docker-logs": "docker-compose -f docker/docker-compose.audit.yml logs -f",
+    "audit:generate": "npx prisma generate --schema=./databases/audit-service/schema.prisma",
+    "audit:migrate": "npx prisma db push --schema=./databases/audit-service/schema.prisma",
+    "audit:cleanup": "ts-node -e \"import('./services/AuditCleanupService').then(m => m.auditCleanupService.performCleanup())\"",
+    "audit:archive": "ts-node -e \"import('./services/AuditCleanupService').then(m => m.auditCleanupService.performArchival())\"",
+    "audit:health": "ts-node -e \"import('./databases/clients/auditClient').then(m => m.default.healthCheck().then(h => console.log('Audit DB Health:', h)))\"",
+    "audit:stats": "ts-node -e \"import('./services/AuditService').then(m => m.auditService.searchAuditLogs({limit: 1}).then(r => console.log('Total Audit Logs:', r.total)))\"",
+    "test:audit": "ts-node scripts/test-audit-system.ts",
+    "check:audit": "ts-node scripts/check-audit-setup.ts"
   }
 }

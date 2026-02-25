@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${SERVICE_NAME}-${COLOR}
+  labels:
+    app: ${SERVICE_NAME}
+    color: ${COLOR}
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ${SERVICE_NAME}
+      color: ${COLOR}
+  template:
+    metadata:
+      labels:
+        app: ${SERVICE_NAME}
+        color: ${COLOR}
+    spec:
+      containers:
+      - name: ${SERVICE_NAME}
+        image: ${DOCKER_IMAGE}:${IMAGE_TAG}
+        ports:
+        - containerPort: 3002 # Port for payment-service
+        envFrom:
+        - configMapRef:
+            name: ${SERVICE_NAME}-config
+        - secretRef:
+            name: ${SERVICE_NAME}-secrets
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 30
+          periodSeconds: 20

@@ -3,8 +3,14 @@ import { AdvancedRateLimitService } from '../services/AdvancedRateLimitService';
 import { authenticate, authorize } from '../middleware/authentication';
 import { UserRole } from '../types/rateLimit';
 import { apiKeyAuth } from '../src/config/auth';
+import { APIKeyManagementService } from '../services/APIKeyManagementService';
+import { IPBlockingService } from '../services/IPBlockingService';
+import { RateLimitBreachNotificationService } from '../services/RateLimitBreachNotificationService';
 
 const rateLimitService = new AdvancedRateLimitService();
+const apiKeyService = new APIKeyManagementService();
+const ipBlockingService = new IPBlockingService();
+const notificationService = new RateLimitBreachNotificationService();
 
 /**
  * @openapi
@@ -509,6 +515,578 @@ export const getRateLimitRules = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch rate limit rules',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * API Key Management Endpoints
+ */
+
+/**
+ * @openapi
+ * /api/rate-limit/api-keys/generate:
+ *   post:
+ *     summary: Generate a new API key for external integrations
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               tier:
+ *                 type: string
+ *                 enum: [FREE, BASIC, PREMIUM, ENTERPRISE]
+ *               endpoints:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       201:
+ *         description: API key generated successfully
+ *       401:
+ *         description: Unauthorized
+ *       400:
+ *         description: Bad request
+ */
+export const generateAPIKey = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const { name, tier = 'BASIC', endpoints, description, expiresAt } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'API key name is required'
+      });
+    }
+
+    const { apiKey, keyId } = await apiKeyService.generateAPIKey(userId, name, {
+      tier,
+      endpoints: endpoints || '*',
+      description,
+      expiresAt: expiresAt ? new Date(expiresAt) : undefined
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        keyId,
+        apiKey,
+        message: 'Keep this API key safe. You will not be able to see it again.'
+      }
+    });
+  } catch (error) {
+    console.error('Generate API key error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate API key',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * @openapi
+ * /api/rate-limit/api-keys:
+ *   get:
+ *     summary: Get all API keys for the authenticated user
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: API keys retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
+export const getUserAPIKeys = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const keys = await apiKeyService.getUserAPIKeys(userId);
+
+    res.json({
+      success: true,
+      data: keys,
+      count: keys.length
+    });
+  } catch (error) {
+    console.error('Get API keys error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch API keys',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * @openapi
+ * /api/rate-limit/api-keys/:keyId:
+ *   get:
+ *     summary: Get API key details
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: keyId
+ *         required: true
+ *         schema:
+ *           type: string
+ */
+export const getAPIKeyDetails = async (req: Request, res: Response) => {
+  try {
+    const { keyId } = req.params;
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const keyData = await apiKeyService.getAPIKeyDetails(keyId);
+
+    if (!keyData || keyData.userId !== userId) {
+      return res.status(404).json({
+        success: false,
+        error: 'API key not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: keyData
+    });
+  } catch (error) {
+    console.error('Get API key details error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch API key details',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * @openapi
+ * /api/rate-limit/api-keys/:keyId/revoke:
+ *   post:
+ *     summary: Revoke an API key
+ *     security:
+ *       - BearerAuth: []
+ */
+export const revokeAPIKey = async (req: Request, res: Response) => {
+  try {
+    const { keyId } = req.params;
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const keyData = await apiKeyService.getAPIKeyDetails(keyId);
+
+    if (!keyData || keyData.userId !== userId) {
+      return res.status(404).json({
+        success: false,
+        error: 'API key not found'
+      });
+    }
+
+    await apiKeyService.revokeAPIKey(keyId);
+
+    res.json({
+      success: true,
+      message: 'API key revoked successfully'
+    });
+  } catch (error) {
+    console.error('Revoke API key error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to revoke API key',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * @openapi
+ * /api/rate-limit/api-keys/:keyId/usage:
+ *   get:
+ *     summary: Get API key usage statistics
+ *     security:
+ *       - BearerAuth: []
+ */
+export const getAPIKeyUsage = async (req: Request, res: Response) => {
+  try {
+    const { keyId } = req.params;
+    const userId = (req as any).user?.id;
+    const { lookbackMs = '86400000' } = req.query;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized'
+      });
+    }
+
+    const keyData = await apiKeyService.getAPIKeyDetails(keyId);
+
+    if (!keyData || keyData.userId !== userId) {
+      return res.status(404).json({
+        success: false,
+        error: 'API key not found'
+      });
+    }
+
+    const usage = await apiKeyService.getAPIKeyUsage(keyId, parseInt(lookbackMs as string));
+
+    res.json({
+      success: true,
+      data: usage
+    });
+  } catch (error) {
+    console.error('Get API key usage error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch API key usage',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * IP Blocking Management Endpoints
+ */
+
+/**
+ * @openapi
+ * /api/rate-limit/ip-blocking/blocked:
+ *   get:
+ *     summary: Get list of blocked IPs
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 100
+ */
+export const getBlockedIPs = async (req: Request, res: Response) => {
+  try {
+    // Admin only
+    if ((req as any).user?.role !== 'ADMIN' && (req as any).user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required'
+      });
+    }
+
+    const { limit = 100, offset = 0 } = req.query;
+
+    const blockedIPs = await ipBlockingService.getBlockedIPs(parseInt(limit as string), parseInt(offset as string));
+
+    res.json({
+      success: true,
+      data: blockedIPs,
+      count: blockedIPs.length
+    });
+  } catch (error) {
+    console.error('Get blocked IPs error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch blocked IPs',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * @openapi
+ * /api/rate-limit/ip-blocking/block:
+ *   post:
+ *     summary: Manually block an IP address
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               ip:
+ *                 type: string
+ *               reason:
+ *                 type: string
+ *               severity:
+ *                 type: string
+ *                 enum: [LOW, MEDIUM, HIGH, CRITICAL]
+ */
+export const blockIP = async (req: Request, res: Response) => {
+  try {
+    // Admin only
+    if ((req as any).user?.role !== 'ADMIN' && (req as any).user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required'
+      });
+    }
+
+    const { ip, reason, severity = 'MEDIUM' } = req.body;
+
+    if (!ip || !reason) {
+      return res.status(400).json({
+        success: false,
+        error: 'IP and reason are required'
+      });
+    }
+
+    const record = await ipBlockingService.blockIP(ip, reason, severity as any, false, {
+      blockedBy: (req as any).user?.id,
+      timestamp: new Date()
+    });
+
+    res.status(201).json({
+      success: true,
+      data: record
+    });
+  } catch (error) {
+    console.error('Block IP error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to block IP',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * @openapi
+ * /api/rate-limit/ip-blocking/unblock:
+ *   post:
+ *     summary: Unblock an IP address
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               ip:
+ *                 type: string
+ */
+export const unblockIP = async (req: Request, res: Response) => {
+  try {
+    // Admin only
+    if ((req as any).user?.role !== 'ADMIN' && (req as any).user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required'
+      });
+    }
+
+    const { ip } = req.body;
+
+    if (!ip) {
+      return res.status(400).json({
+        success: false,
+        error: 'IP is required'
+      });
+    }
+
+    const result = await ipBlockingService.unblockIP(ip);
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        error: 'IP not found in blocklist'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `IP ${ip} has been unblocked`
+    });
+  } catch (error) {
+    console.error('Unblock IP error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to unblock IP',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * @openapi
+ * /api/rate-limit/ip-blocking/whitelist:
+ *   post:
+ *     summary: Add IP to whitelist
+ *     security:
+ *       - BearerAuth: []
+ */
+export const whitelistIP = async (req: Request, res: Response) => {
+  try {
+    // Admin only
+    if ((req as any).user?.role !== 'ADMIN' && (req as any).user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required'
+      });
+    }
+
+    const { ip } = req.body;
+
+    if (!ip) {
+      return res.status(400).json({
+        success: false,
+        error: 'IP is required'
+      });
+    }
+
+    await ipBlockingService.whitelistIP(ip);
+
+    res.json({
+      success: true,
+      message: `IP ${ip} has been whitelisted`
+    });
+  } catch (error) {
+    console.error('Whitelist IP error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to whitelist IP',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * Breach Notification Management Endpoints
+ */
+
+/**
+ * @openapi
+ * /api/rate-limit/notifications/preferences:
+ *   get:
+ *     summary: Get notification preferences
+ *     security:
+ *       - BearerAuth: []
+ */
+export const getNotificationPreferences = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+
+    const preferences = userId
+      ? await notificationService.getUserNotificationPreferences(userId)
+      : await notificationService.getNotificationPreferences();
+
+    res.json({
+      success: true,
+      data: preferences
+    });
+  } catch (error) {
+    console.error('Get notification preferences error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch notification preferences',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * @openapi
+ * /api/rate-limit/notifications/preferences:
+ *   post:
+ *     summary: Update notification preferences
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ */
+export const updateNotificationPreferences = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const preferences = req.body;
+
+    await notificationService.setNotificationPreferences(preferences, userId);
+
+    res.json({
+      success: true,
+      message: 'Notification preferences updated successfully'
+    });
+  } catch (error) {
+    console.error('Update notification preferences error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update notification preferences',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
+/**
+ * @openapi
+ * /api/rate-limit/breach-history:
+ *   get:
+ *     summary: Get breach notification history
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 100
+ */
+export const getBreachHistory = async (req: Request, res: Response) => {
+  try {
+    const { limit = 100, offset = 0 } = req.query;
+
+    const breaches = await notificationService.getBreachHistory(parseInt(limit as string), parseInt(offset as string));
+
+    res.json({
+      success: true,
+      data: breaches,
+      count: breaches.length
+    });
+  } catch (error) {
+    console.error('Get breach history error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch breach history',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
