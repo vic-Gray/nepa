@@ -1,0 +1,554 @@
+{
+  "info": {
+    "name": "Rate Limiting System API Tests",
+    "description": "Complete test collection for sophisticated rate limiting system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Setup & Authentication",
+      "item": [
+        {
+          "name": "Login & Get Auth Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "API Key Management",
+      "item": [
+        {
+          "name": "1. Generate API Key - BASIC Tier",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test API Key - BASIC\",\n  \"tier\": \"BASIC\",\n  \"endpoints\": [\"/*\"],\n  \"description\": \"Test key for rate limiting verification\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/api-keys/generate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "api-keys", "generate"]
+            }
+          }
+        },
+        {
+          "name": "2. Generate API Key - PREMIUM Tier",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test API Key - PREMIUM\",\n  \"tier\": \"PREMIUM\",\n  \"endpoints\": [\"/api/documents\", \"/api/users\"],\n  \"description\": \"Premium tier key with endpoint restrictions\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/api-keys/generate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "api-keys", "generate"]
+            }
+          }
+        },
+        {
+          "name": "3. List My API Keys",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/api-keys",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "api-keys"]
+            }
+          }
+        },
+        {
+          "name": "4. Get API Key Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/api-keys/{{key_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "api-keys", "{{key_id}}"]
+            }
+          }
+        },
+        {
+          "name": "5. Get API Key Usage Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/api-keys/{{key_id}}/usage?lookbackMs=86400000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "api-keys", "{{key_id}}", "usage"],
+              "query": [
+                {
+                  "key": "lookbackMs",
+                  "value": "86400000"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. Revoke API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/api-keys/{{key_id}}/revoke",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "api-keys", "{{key_id}}", "revoke"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rate Limit Testing",
+      "item": [
+        {
+          "name": "1. Make Request with API Key - Check Headers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/documents",
+              "host": ["{{base_url}}"],
+              "path": ["api", "documents"]
+            }
+          }
+        },
+        {
+          "name": "2. Batch Requests - Monitor Remaining",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/documents?page=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "documents"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3. Hit Rate Limit - Expect 429",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/documents?bulk=true",
+              "host": ["{{base_url}}"],
+              "path": ["api", "documents"],
+              "query": [
+                {
+                  "key": "bulk",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. Check Rate Limit Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/check",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "check"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "IP Blocking Management",
+      "item": [
+        {
+          "name": "1. Get List of Blocked IPs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/ip-blocking/blocked?limit=100&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "ip-blocking", "blocked"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "100"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2. Block an IP Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ip\": \"203.0.113.45\",\n  \"reason\": \"Excessive failed authentication attempts\",\n  \"severity\": \"HIGH\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/ip-blocking/block",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "ip-blocking", "block"]
+            }
+          }
+        },
+        {
+          "name": "3. Unblock an IP Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ip\": \"203.0.113.45\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/ip-blocking/unblock",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "ip-blocking", "unblock"]
+            }
+          }
+        },
+        {
+          "name": "4. Whitelist an IP Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ip\": \"203.0.113.100\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/ip-blocking/whitelist",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "ip-blocking", "whitelist"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notification Management",
+      "item": [
+        {
+          "name": "1. Get Notification Preferences",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/notifications/preferences",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "notifications", "preferences"]
+            }
+          }
+        },
+        {
+          "name": "2. Update Notification Preferences - Email + Slack",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channels\": [\n    {\n      \"type\": \"email\",\n      \"config\": {\n        \"recipients\": \"your-email@example.com\"\n      },\n      \"enabled\": true,\n      \"minSeverity\": \"HIGH\"\n    },\n    {\n      \"type\": \"slack\",\n      \"config\": {\n        \"webhookUrl\": \"https://hooks.slack.com/services/YOUR_WEBHOOK_ID\",\n        \"channel\": \"#alerts\"\n      },\n      \"enabled\": true,\n      \"minSeverity\": \"MEDIUM\"\n    }\n  ],\n  \"breachThreshold\": 1,\n  \"quietHours\": {\n    \"start\": 22,\n    \"end\": 8\n  },\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/notifications/preferences",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "notifications", "preferences"]
+            }
+          }
+        },
+        {
+          "name": "3. Get Breach History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/breach-history?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "breach-history"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "1. Get Rate Limit Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/analytics?start=2026-02-24T00:00:00Z&end=2026-02-25T23:59:59Z",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "analytics"],
+              "query": [
+                {
+                  "key": "start",
+                  "value": "2026-02-24T00:00:00Z"
+                },
+                {
+                  "key": "end",
+                  "value": "2026-02-25T23:59:59Z"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2. Get Rate Limit Breaches",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/breaches?limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "breaches"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3. Get Rate Limit Tiers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/tiers",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "tiers"]
+            }
+          }
+        },
+        {
+          "name": "4. Get Rate Limit Rules",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/rate-limit/rules",
+              "host": ["{{base_url}}"],
+              "path": ["api", "rate-limit", "rules"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "key_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
