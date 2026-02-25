@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Payment {
   id: string;
@@ -33,6 +34,7 @@ interface UpcomingBill {
 }
 
 const Dashboard: React.FC = () => {
+  const { resolvedTheme } = useTheme();
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -98,73 +100,75 @@ const Dashboard: React.FC = () => {
     ? Math.round((payments.filter(p => p.status === 'completed').length / payments.length) * 100)
     : 0;
 
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+  const COLORS = resolvedTheme === 'dark' 
+    ? ['rgb(96, 165, 250)', 'rgb(74, 222, 128)', 'rgb(251, 191, 36)', 'rgb(248, 113, 113)']
+    : ['rgb(59, 130, 246)', 'rgb(16, 185, 129)', 'rgb(245, 158, 11)', 'rgb(239, 68, 68)'];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
+    <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
             User Dashboard
           </h1>
-          <p className="text-sm sm:text-base text-gray-600">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Monitor your utility payments and consumption
           </p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <div className="bg-white rounded-lg shadow-sm sm:shadow p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
+          <div className="bg-card rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Total Spent</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">${totalSpent.toFixed(2)}</p>
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Spent</p>
+                <p className="text-xl sm:text-2xl font-bold text-card-foreground">${totalSpent.toFixed(2)}</p>
               </div>
-              <div className="bg-blue-100 rounded-full p-2 sm:p-3 ml-3">
-                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-primary/10 rounded-full p-2 sm:p-3 ml-3">
+                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm sm:shadow p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
+          <div className="bg-card rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Avg Monthly Bill</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">${avgMonthlyBill.toFixed(2)}</p>
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Monthly Bill</p>
+                <p className="text-xl sm:text-2xl font-bold text-card-foreground">${avgMonthlyBill.toFixed(2)}</p>
               </div>
-              <div className="bg-green-100 rounded-full p-2 sm:p-3 ml-3">
-                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-success/10 rounded-full p-2 sm:p-3 ml-3">
+                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm sm:shadow p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
+          <div className="bg-card rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Pending Bills</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{upcomingBills.length}</p>
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Pending Bills</p>
+                <p className="text-xl sm:text-2xl font-bold text-card-foreground">{upcomingBills.length}</p>
               </div>
-              <div className="bg-yellow-100 rounded-full p-2 sm:p-3 ml-3">
-                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-warning/10 rounded-full p-2 sm:p-3 ml-3">
+                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm sm:shadow p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
+          <div className="bg-card rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Success Rate</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{successRate}%</p>
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Success Rate</p>
+                <p className="text-xl sm:text-2xl font-bold text-card-foreground">{successRate}%</p>
               </div>
-              <div className="bg-purple-100 rounded-full p-2 sm:p-3 ml-3">
-                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-info/10 rounded-full p-2 sm:p-3 ml-3">
+                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
